@@ -35,6 +35,8 @@ def Generate_actuations(positions, file_names):
 
 def main():
     positions, file_names = Read_files()
+    print(positions[0])
+    print(positions[-1])
     Generate_actuations(positions, file_names)
 
 if __name__ == '__main__':

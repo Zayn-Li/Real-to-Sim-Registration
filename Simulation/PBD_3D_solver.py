@@ -34,7 +34,6 @@ mat = lambda: ti.Matrix(dim, dim, dt=real) #2*2 matrix(each element in a tensor)
 num_particles = ti.var(ti.i32, shape=())
 num_tetra = ti.var(ti.i32, shape=())
 damping = ti.var(ti.f32, shape=())
-control_one_particle = ti.var(ti.i32, shape=())
 
 particle_mass = 1 #mi
 particle_mass_inv = 1 / particle_mass # 1 / mi
@@ -54,7 +53,7 @@ constraint_neighbors = ti.var(ti.i32)
 constraint_num_neighbors = ti.var(ti.i32)
 volumn_constraint_num = ti.var(ti.i32)
 volumn_constraint_list = scalar()
-gravity = [0, 0, 0] #direction (x,y,z) accelaration
+gravity = [0, -9.8, -9.8] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -112,6 +111,7 @@ def find_volumn_constraint(n: ti.i32):
 
 @ti.kernel
 def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and new velocity
+    print(x_, y_, z_)
     for i in range(n):
         if actuation_type[i] == 1:  #control points fixed on the robot arm
             x[i][0] += x_
@@ -122,7 +122,8 @@ def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and 
 @ti.kernel
 def Position_update(n: ti.i32):# Compute new position
     for i in range(n):
-        x[i] += v[i] * dt
+        if actuation_type[i] != 1: #the actuated points are control by the tool only!
+            x[i] += v[i] * dt
 
 @ti.kernel
 def stretch_constraint(n: ti.i32):
@@ -194,6 +195,10 @@ def volumn_constraint(n: ti.i32):
 @ti.kernel
 def apply_position_deltas(n: ti.i32):
     for i in range(n):
+        #control_type:
+        # 0 -> fixed particles
+        # 1 -> actuated particles (f)
+        # else -> other particles
         if actuation_type[i] != 1: #or if actuation_type[i] == 0
             x[i] += position_delta_tmp[i]
 
@@ -208,7 +213,7 @@ def new_particle(pos_x: ti.f32, pos_y: ti.f32, pos_z: ti.f32, control_type: ti.i
     x[new_particle_id] = [pos_x, pos_y, pos_z]
     v[new_particle_id] = [0, 0, 0]
     #control_type:
-    # 0 -> fixed particles
+    # 0 -> fixed particles(great mass)
     # 1 -> actuated particles
     # else -> other particles
     #assign control label to each particle(-1,1,0)
@@ -218,7 +223,6 @@ def new_particle(pos_x: ti.f32, pos_y: ti.f32, pos_z: ti.f32, control_type: ti.i
     elif control_type == 1:
         actuation_type[new_particle_id] = 1
         mass[new_particle_id] = 1
-        control_one_particle[None] = new_particle_id
     else:
         actuation_type[new_particle_id] = 0
         mass[new_particle_id] = 1
@@ -366,13 +370,12 @@ class Render():
         self.v.render_lock.release()
         self.iteration += 1
 
-control_one_particle[None] = max_num_particles
 damping[None] = 30
 
 def L2_distance(p1, p2):
     return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2
 
-def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_path, scalar):
+def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar):
     #Read all mesh points from txt.file
     points = []
     with open(dir_path + 'node', 'r') as f:
@@ -402,11 +405,6 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
             surface_tri.append((int(odom[3]) - offset))
     surface_tri.sort()
     surface_points = []
-    y_surface = 0
-    x_max = 0
-    x_min = 10000
-    z_max = 0
-    z_min = 10000
     for i in range(len(points)):
         if i in surface_tri:
             surface_points.append(points[i])
@@ -422,12 +420,27 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
         a2 = original_index.index(int(odom[2]) - offset)
         a3 = original_index.index(int(odom[3]) - offset)
         surface_only_tri.append([new_index[a2], new_index[a1], new_index[a3]])
-
     num_particles[None] = 0
     num_tetra[None] = 0
+    #Define control type for each particle
+    #control_type:
+    # 0 -> fixed particles
+    # 1 -> actuated particles
+    # -1 -> other particles
+    ActuatedParticle = []
+    BaseParticle = []
+    for index in ControlParticleIndex:
+        ActuatedParticle.append(original_index[index])
+    for index in BaseParticleIndex:
+        BaseParticle.append(original_index[index])
     for i in range(len(points)):
         control_type = -1
+        if i in ActuatedParticle:
+            control_type = 1
+        elif i in BaseParticle:
+            control_type = 0
         new_particle(points[i][0], points[i][1], points[i][2], control_type)
+
     n = num_particles[None]
     X = x.to_numpy()[:n]
     new_constraints = tetealedon2constraint(constraints, X)
@@ -472,10 +485,12 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
             frame += 1
         #user specify
         for step in range(1):
-            x_ = controlTrajectory[iteration][0]
-            y_ = controlTrajectory[iteration][1]
-            z_ = controlTrajectory[iteration][2]
+            x_ = ControlTrajectory[iteration][0]
+            y_ = ControlTrajectory[iteration][1]
+            z_ = ControlTrajectory[iteration][2]
+            print(x_,y_,z_)
             forward(n, number_tetra, x_, y_, z_) #x,y,z control input
+        print(x.to_numpy()[ActuatedParticle])
         print("Next step!")
         iteration += 1
     num_tetra[None] = 0
@@ -492,17 +507,55 @@ def Read_control():
     position_path = './Control_actions'
     position_file = os.listdir(position_path)
     position_file.sort(key= lambda x:int(x[:x.index('to')]))
+    actions = []
+    timestamps = []
+    for file in position_file:
+        if not os.path.isdir(file):
+            timestamps.append(file[file.index('o')+1:-4])
+            f = open(position_path+"/"+file)
+            iter_f = iter(f)
+            action = []
+            for line in iter_f: #遍历文件，一行行遍历，读取文本
+                action.append(float(line))
+        actions.append(action)
+    return actions, timestamps
+
+def Read_MatchedTime():
+    f = open('./Registration/stamps.txt')
+    iter_f = iter(f)
+    timestamps = []
+    for line in iter_f:
+        timestamps.append(line[:-1])
+    return timestamps[1:]
+
+def Read_ControlIndex(thin_or_thick):
+    f = open('./Particle_index/control_' + thin_or_thick + '.txt')
+    iter_f = iter(f)
+    ControlParticles = []
+    for line in iter_f:
+        ControlParticles.append(int(line))
+    return ControlParticles
+
+def Read_BaseIndex(thin_or_thick):
+    f = open('./Particle_index/base_' + thin_or_thick + '.txt')
+    iter_f = iter(f)
+    BaseParticles = []
+    for line in iter_f:
+        BaseParticles.append(int(line))
+    return BaseParticles
 
 if __name__ == '__main__':
     #Control input during each iteration
-    ControlTrajectory = Read_control()
+    Thin_or_Thick = 'thin'
+    ControlTrajectory, ControlTimestamps = Read_control()
+    PointcloundTimestamps = Read_MatchedTime()
+    ControlParticleIndex = Read_ControlIndex(Thin_or_Thick)
+    BaseParticleIndex = Read_BaseIndex(Thin_or_Thick)
     scalar = 1
     offset = 0
-    dir = './volume_mesh/tetgenq1.4/vol_mesh_thin/vol_mesh_thin.1.'
+    dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.'
     wire_frame = False #Render option: True -> wire frame; False -> surface
-    total_images = 51 #Total number of steps
-    ControlTrajectory = [[x_, y_, z_]] * total_images #User specify
-
+    total_images = len(ControlTimestamps) #Total number of steps
     #Control input for each step. Currently, they are the same control inputs.
     #TODO: User specify which particle(particles) to control; Current, I pick up a surface particle randomly.
-    solver_and_render(total_images, wire_frame, ControlTrajectory, offset, dir, scalar)
+    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar)
