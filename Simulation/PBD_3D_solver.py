@@ -40,12 +40,6 @@ particle_mass = 1 #mi
 particle_mass_inv = 1 / particle_mass # 1 / mi
 particle_mass_invv = 1 / (particle_mass_inv + particle_mass_inv + lambda_epsilon)
 maximum_constraints = 50
-bottom_y = 0.05
-bottom_x = 0.05
-bottom_z = 0.05
-x_origin = 5
-y_origin = 5
-z_origin = 5
 epsolon = 1e-8 #digit accurary(important) -> adjustable
 volumn_epsolon = 1e-11
 
@@ -416,54 +410,9 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
     for i in range(len(points)):
         if i in surface_tri:
             surface_points.append(points[i])
-    # p=np.array(surface_points)
-    # v=pptk.viewer(p)
-    points_set_tmp = []
-    for tmp_point in surface_points:
-        if tmp_point[1] >= 0 and tmp_point[1] <= 0.05:
-            y_surface += 1
-        elif tmp_point[1] > 0.2:
-            points_set_tmp.append(tmp_point)
-        if tmp_point[0] >= x_max:
-            x_max = tmp_point[0]
-        if tmp_point[0] <= x_min:
-            x_min = tmp_point[0]
-        if tmp_point[2] >= z_max:
-            z_max = tmp_point[2]
-        if tmp_point[2] <= z_min:
-            z_min = tmp_point[2]
-    print(y_surface)
-    print(len(points_set_tmp))
-    print(x_max, x_min, z_max, z_min)
+    p=np.array(surface_points)
+    v=pptk.viewer(p)
     print("Number of surface vertices:", len(surface_points))
-    x_span = x_max - x_min
-    z_span = z_max - z_min
-    control_particle_indexes = []
-    fixed_particle_indexes = []
-    index_ = 0
-    # print("upper surface particles:", len(points_set_tmp))
-    fixed_particles = random.sample(points_set_tmp, 10)
-    # print("fixed_center_particles:", fixed_particles)
-    for tmp_point in surface_points:
-        if tmp_point[1] >= 0 and tmp_point[1] <= 0.05 and len(control_particle_indexes) == 0:
-            print("******")
-            print(tmp_point[0], tmp_point[1], tmp_point[2])
-            print("******")
-            print(x_min + 0.33 * x_span, x_min + 0.67 * x_span)
-            print(z_min + 0.33 * z_span, z_min + 0.87 * z_span)
-            if tmp_point[0] >= x_min + 0.33 * x_span and tmp_point[0] <= x_min + 0.67 * x_span:
-                if tmp_point[2] >= z_min + 0.33 * z_span and tmp_point[2] <= z_min + 0.87 * z_span:
-                    control_particle_indexes.append(surface_tri[index_])
-        elif tmp_point[1] > 0.2:
-            for fixed_center_point in fixed_particles:
-                if L2_distance(fixed_center_point, tmp_point) <= 0.3:
-                    fixed_particle_indexes.append(surface_tri[index_])
-                    break
-        index_ += 1
-    print(control_particle_indexes)
-    # print("Actuated particle's index:", control_particle_indexes)
-    #print("Fixed particles' indices:", fixed_particle_indexes)
-    print("Number of fixed particles:", len(fixed_particle_indexes))
     original_index = surface_tri
     new_index = list(range(len(surface_tri)))
     surface_only_tri = [] #facet information for only surface vertices
@@ -478,10 +427,6 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
     num_tetra[None] = 0
     for i in range(len(points)):
         control_type = -1
-        if i in control_particle_indexes:
-            control_type = 1 #Actuated particle
-        elif i in fixed_particle_indexes:
-            control_type = 0 #Fixed particle
         new_particle(points[i][0], points[i][1], points[i][2], control_type)
     n = num_particles[None]
     X = x.to_numpy()[:n]
@@ -514,7 +459,7 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
     frame = 0
     while iteration <= total_images - 1: #total simulation steps
         if iteration % 1 == 0: #output every n iterations(n = 1 here)
-            X = x.to_numpy()[original_index]
+            X = x.to_numpy()[original_index] #extract surface points
             iterior_x = X[:,0] / scalar
             iterior_y = X[:,1] / scalar
             iterior_z = X[:,2] / scalar
@@ -543,14 +488,17 @@ def solver_and_render(total_images, wire_frame, controlTrajectory, offset, dir_p
     print("After simulation, volumn is:", volumn_sum)
     # print("Video has been generated!")
 
+def Read_control():
+    position_path = './Control_actions'
+    position_file = os.listdir(position_path)
+    position_file.sort(key= lambda x:int(x[:x.index('to')]))
+
 if __name__ == '__main__':
     #Control input during each iteration
-    x_ = 0
-    y_ = 0.0005
-    z_ = 0.0000
-    scalar = 5
+    ControlTrajectory = Read_control()
+    scalar = 1
     offset = 0
-    dir = './3D_mesh_points/lung/lung.1.'
+    dir = './volume_mesh/tetgenq1.4/vol_mesh_thin/vol_mesh_thin.1.'
     wire_frame = False #Render option: True -> wire frame; False -> surface
     total_images = 51 #Total number of steps
     ControlTrajectory = [[x_, y_, z_]] * total_images #User specify
