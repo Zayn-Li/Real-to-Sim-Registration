@@ -12,16 +12,17 @@ import scipy.linalg
 import time
 import os
 import copy
+import re
 
 
 ti.init(debug=False,arch=ti.cpu) #cpu or cuda
 real = ti.f32 #data type f32 -> float in C
 
-max_num_particles = 10000
+max_num_particles = 5000
 maximum_tetras = 40000
 
 lambda_epsilon = 0.0 #user specified relaxation parameter(important) -> adjustable
-dt = 1e-2#simulation time step(important) -> adjustable
+dt = 1e-2#simulation time step(important) -> adjustable(inferred from rosbag timestamps)
 dt_inv = 1 / dt
 dx = 0.02
 dim = 3
@@ -49,18 +50,23 @@ rest_length = scalar()
 tetra_volumn = scalar()
 mass = scalar()
 position_delta_tmp = vec()
+shape_delta = vec()
 constraint_neighbors = ti.var(ti.i32)
 constraint_num_neighbors = ti.var(ti.i32)
 volumn_constraint_num = ti.var(ti.i32)
 volumn_constraint_list = scalar()
-gravity = [0, -9.8, -9.8] #direction (x,y,z) accelaration
+Registration_index = scalar()
+Registration_grad = vec()
+Registration_error = ti.var(ti.f32, shape=())
+Registration_lambda = ti.var(ti.f32, shape=())
+gravity = [0, 0, 0] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
     ti.root.dense(ti.i, maximum_tetras).place(volumn_constraint_list)
     ti.root.dense(ti.ij, (maximum_tetras, 5)).place(tetra_volumn)
     ti.root.dense(ti.ij, (max_num_particles, max_num_particles)).place(rest_length)
-    ti.root.dense(ti.i, max_num_particles).place(x, v, old_x, actuation_type, position_delta_tmp, mass) #initialzation to zero
+    ti.root.dense(ti.i, max_num_particles).place(x, v, old_x, actuation_type, position_delta_tmp, mass, shape_delta, Registration_index, Registration_grad) #initialzation to zero
     nb_node = ti.root.dense(ti.i, max_num_particles)
     nb_node.place(constraint_num_neighbors)
     nb_node.place(volumn_constraint_num)
@@ -111,8 +117,11 @@ def find_volumn_constraint(n: ti.i32):
 
 @ti.kernel
 def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and new velocity
-    print(x_, y_, z_)
     for i in range(n):
+        if actuation_type[i] == 0:
+            #v[i] *= ti.exp(-dt * damping[None]) # damping
+            total_force = ti.Vector(gravity) * particle_mass
+            v[i] += dt * total_force / mass[i]
         if actuation_type[i] == 1:  #control points fixed on the robot arm
             x[i][0] += x_
             x[i][1] += y_
@@ -122,7 +131,7 @@ def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and 
 @ti.kernel
 def Position_update(n: ti.i32):# Compute new position
     for i in range(n):
-        if actuation_type[i] != 1: #the actuated points are control by the tool only!
+        if actuation_type[i] != 1: #the actuated points(control_type[i] = 1) are controlled by the tool only!
             x[i] += v[i] * dt
 
 @ti.kernel
@@ -196,7 +205,7 @@ def volumn_constraint(n: ti.i32):
 def apply_position_deltas(n: ti.i32):
     for i in range(n):
         #control_type:
-        # 0 -> fixed particles
+        # -1 -> fixed particles
         # 1 -> actuated particles (f)
         # else -> other particles
         if actuation_type[i] != 1: #or if actuation_type[i] == 0
@@ -218,13 +227,13 @@ def new_particle(pos_x: ti.f32, pos_y: ti.f32, pos_z: ti.f32, control_type: ti.i
     # else -> other particles
     #assign control label to each particle(-1,1,0)
     if control_type == 0:
-        actuation_type[new_particle_id] = -1
+        actuation_type[new_particle_id] = -1 #fixed
         mass[new_particle_id] = 10000000
     elif control_type == 1:
-        actuation_type[new_particle_id] = 1
+        actuation_type[new_particle_id] = 1  #actuated
         mass[new_particle_id] = 1
     else:
-        actuation_type[new_particle_id] = 0
+        actuation_type[new_particle_id] = 0  #else
         mass[new_particle_id] = 1
     num_particles[None] += 1
 
@@ -252,6 +261,23 @@ def new_tetra(p1_index: ti.i32, p2_index: ti.i32, p3_index: ti.i32, p4_index: ti
     tetra_volumn[new_tetra_id, 4] = volumn
     num_tetra[None] += 1
 
+@ti.kernel
+def apply_shape_delta(n: ti.i32):
+    for i in range(n):
+        #control_type:
+        # -1 -> fixed particles
+        # 1 -> actuated particles (f)
+        # else -> other particles
+        if actuation_type[i] == 0: #or if actuation_type[i] == 0
+            x[i] += shape_delta[i]
+
+@ti.kernel
+def apply_regis_delta(n: ti.i32):
+    for i in range(n):
+        if Registration_index[i] == 1:
+            mass_inv = 1 / mass[i]
+            x[i] -= Registration_lambda[None] * mass_inv * Registration_grad[i]
+
 def check_single_particle():
     cons = rest_length.to_numpy()
     invalid_particle = []
@@ -278,12 +304,40 @@ def tetealedon2constraint(constraints, X):
                 new_constraints.append(new_constraint)
     return new_constraints
 
-def forward(number_particles, number_tetra, x_, y_, z_):
+def shape_matching(stiffness, Clusters, old_X, new_X):
+    cluster_numebr = len(Clusters)
+    DeltaX = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
+    cluster_constraint_num = np.zeros(shape=(max_num_particles,1),dtype=np.int32)
+    for index in range(cluster_numebr):
+        for j in Clusters[index]:
+            cluster_constraint_num[j] += 1
+    for index in range(cluster_numebr):
+        old_positions = old_X[Clusters[index]]
+        new_positions = new_X[Clusters[index]]
+        old_mean = np.mean(old_positions,axis=0)  #t0
+        new_mean = np.mean(new_positions,axis=0)  #t
+        old_diff = old_positions - old_mean
+        new_diff = new_positions - new_mean
+        rotation_ = np.zeros([3,3])
+        for i in range(len(Clusters[index])):
+            rotation_ += new_diff[i,:].reshape(3,1).dot(old_diff[i,:].reshape(1,3))
+        rotation, symmetric = scipy.linalg.polar(rotation_)
+        tmp = new_mean - rotation.dot(old_mean)
+        Transform = np.column_stack((rotation, tmp.T))
+        for i in range(len(Clusters[index])):
+            H_coor = np.row_stack((old_positions[i,:].reshape(3,1),np.array([1])))
+            x_offset = stiffness * (Transform.dot(H_coor).squeeze() - new_positions[i,:])
+            DeltaX[Clusters[index][i],:] += x_offset / cluster_constraint_num[Clusters[index][i]]
+    return DeltaX
+
+def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness, Registration = False):
     #the first three steps -> only consider external force
     old_posi(number_particles)
+    #old_X = old_x.to_numpy()
     substep(number_particles, x_, y_, z_)
     Position_update(number_particles)
     for i in range(pbd_num_iters):
+        old_X = x.to_numpy()
         constraint_neighbors.fill(-1)
         find_spring_constraint(number_particles)
         volumn_constraint_num.fill(0)
@@ -292,6 +346,13 @@ def forward(number_particles, number_tetra, x_, y_, z_):
         stretch_constraint(number_particles)
         volumn_constraint(number_tetra)
         apply_position_deltas(number_particles)
+        new_X = x.to_numpy()
+        #shape matching
+        DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
+        shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
+        apply_shape_delta(number_particles)
+    if Registration == True:
+        apply_regis_delta(number_particles) #should be put inside the loop
     updata_velosity(number_particles)
 
 #gui = ti.GUI('Mass Spring System', res=(640, 640), background_color=0xdddddd)
@@ -375,7 +436,7 @@ damping[None] = 30
 def L2_distance(p1, p2):
     return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2
 
-def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar):
+def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, Deviat, Errors, matched_lists, Registration_switch):
     #Read all mesh points from txt.file
     points = []
     with open(dir_path + 'node', 'r') as f:
@@ -408,11 +469,18 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     for i in range(len(points)):
         if i in surface_tri:
             surface_points.append(points[i])
-    p=np.array(surface_points)
-    v=pptk.viewer(p)
+    #p=np.array(surface_points)
+    #v=pptk.viewer(p)
     print("Number of surface vertices:", len(surface_points))
     original_index = surface_tri
     new_index = list(range(len(surface_tri)))
+    #Registration index
+    #1 -> seleced surface mesh
+    tmp = np.zeros(max_num_particles,dtype=np.float32)
+    for i in new_index[0:len(Deviat[0])]:
+        tmp[i] = 1
+    Registration_index.from_numpy(tmp)
+    #Registration index
     surface_only_tri = [] #facet information for only surface vertices
     for line in data[1: len(data) - 1]:
         odom = line.split()
@@ -470,7 +538,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     #end:setup rendering offscreen
     iteration = 0
     frame = 0
-    while iteration <= total_images - 1: #total simulation steps
+    while iteration <= total_images: #total simulation steps
         if iteration % 1 == 0: #output every n iterations(n = 1 here)
             X = x.to_numpy()[original_index] #extract surface points
             iterior_x = X[:,0] / scalar
@@ -484,15 +552,32 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
             off_screen.render()
             frame += 1
         #user specify
-        for step in range(1):
-            x_ = ControlTrajectory[iteration][0]
-            y_ = ControlTrajectory[iteration][1]
-            z_ = ControlTrajectory[iteration][2]
-            print(x_,y_,z_)
-            forward(n, number_tetra, x_, y_, z_) #x,y,z control input
-        print(x.to_numpy()[ActuatedParticle])
-        print("Next step!")
+        if iteration <= total_images - 1:
+            for step in range(1):
+                x_ = ControlTrajectory[iteration][0]
+                y_ = ControlTrajectory[iteration][1]
+                z_ = ControlTrajectory[iteration][2]
+                if Registration_switch and iteration + 1 in matched_lists and iteration + 1 == 5:
+                    print("Input camera data -> Registration correction")
+                    index = matched_lists.index(iteration + 1)
+                    tmp = np.array(Errors[index][0],dtype = np.float32)
+                    Registration_error.from_numpy(tmp)
+                    tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
+                    tmp_index = 0
+                    selected_index = Registration_index.to_numpy()
+                    for i in range(max_num_particles):
+                        if selected_index[i] == 1:
+                            np_grad = np.array(Deviat[index][tmp_index],dtype=np.float32)
+                            tmp[i,:] = np_grad
+                            tmp_index+=1
+                    Registration_lambda[None] = Registration_error[None] / np.sum(np.sum(tmp ** 2, axis = 1))
+                    Registration_grad.from_numpy(tmp)
+                    forward(n, number_tetra, x_, y_, z_, Clusters, stiffness, True) #x,y,z control input
+                else:
+                    forward(n, number_tetra, x_, y_, z_, Clusters, stiffness, False) #x,y,z control input
+            print("Next step!")
         iteration += 1
+
     num_tetra[None] = 0
     for tetra_vertices in constraints:
         new_tetra(tetra_vertices[0], tetra_vertices[1], tetra_vertices[2], tetra_vertices[3])
@@ -517,6 +602,7 @@ def Read_control():
             action = []
             for line in iter_f: #遍历文件，一行行遍历，读取文本
                 action.append(float(line))
+            f.close()
         actions.append(action)
     return actions, timestamps
 
@@ -526,7 +612,8 @@ def Read_MatchedTime():
     timestamps = []
     for line in iter_f:
         timestamps.append(line[:-1])
-    return timestamps[1:]
+    f.close()
+    return timestamps
 
 def Read_ControlIndex(thin_or_thick):
     f = open('./Particle_index/control_' + thin_or_thick + '.txt')
@@ -534,6 +621,7 @@ def Read_ControlIndex(thin_or_thick):
     ControlParticles = []
     for line in iter_f:
         ControlParticles.append(int(line))
+    f.close()
     return ControlParticles
 
 def Read_BaseIndex(thin_or_thick):
@@ -542,7 +630,76 @@ def Read_BaseIndex(thin_or_thick):
     BaseParticles = []
     for line in iter_f:
         BaseParticles.append(int(line))
+    f.close()
     return BaseParticles
+
+def Read_cluster(dir):
+    f = open(dir)
+    iter_f = iter(f)
+    tmp = []
+    for line in iter_f:
+        tmp.append(line)
+    Cluster_number = int(re.findall(r"\d+\.?\d*",tmp[0])[0])
+    print("There is ", Cluster_number, "clusters")
+    Cluster_index = []
+    for i in range(2, 2+Cluster_number):
+        Cluster_index.append(int(tmp[i-1]))
+    Clusters = []
+    for index in range(len(Cluster_index)):
+        cluster = []
+        if index == 0:
+            for i in range(Cluster_index[index]):
+                cluster.append(int(tmp[Cluster_number+2+i]))
+        else:
+            for i in range(Cluster_index[index-1],Cluster_index[index]):
+                cluster.append(int(tmp[Cluster_number+2+i]))
+        Clusters.append(cluster)
+    f.close()
+    return Clusters
+
+def Read_registration(dir):
+    file_names = os.listdir(dir)
+    error_file = 'None'
+    errors = []
+    if 'error.txt' in file_names:
+        error_file = 'error.txt'
+        f = open(dir + error_file)
+        iter_f = iter(f)
+        tmp = []
+        for line in iter_f:
+            line = line.split(" ")
+            #line = re.findall(r"\d+\.?\d*",line)
+            for index in range(len(line)):
+                if len(line[index]) > 2 and line[index][2].isdigit():
+                    line[index] = float(line[index])
+            tmp.append(line)
+        f.close()
+        errors = tmp[1:]
+    else:
+        print("No error file!")
+    tmp = []
+    for file in file_names:
+        if 'ply' in file:
+            tmp.append(file)
+    file_names = tmp
+    file_names.sort(key= lambda x:int(x[x.index('_')+1:x.index('.')]))
+    Deviat = []
+    for dir_ in file_names:
+        dir_ = dir + dir_
+        f = open(dir_)
+        iter_f = iter(f)
+        tmp = []
+        for line in iter_f:
+            line = line.split(" ")
+            for index in range(len(line)):
+                if len(line[index]) > 3 and line[index][3].isdigit():
+                    line[index] = float(line[index])
+            tmp.append(line)
+        f.close()
+        tmp = tmp[30:-1]  #remove the header information
+        Deviat.append(tmp)
+        #764 surface vertices that will be corrected
+    return Deviat, errors
 
 if __name__ == '__main__':
     #Control input during each iteration
@@ -551,11 +708,25 @@ if __name__ == '__main__':
     PointcloundTimestamps = Read_MatchedTime()
     ControlParticleIndex = Read_ControlIndex(Thin_or_Thick)
     BaseParticleIndex = Read_BaseIndex(Thin_or_Thick)
+    Clusters = Read_cluster('./volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
     scalar = 1
     offset = 0
-    dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.'
+    stiffness = 1
+    matched_list = []
+    for i in range(len(ControlTimestamps)):
+        if ControlTimestamps[i] in PointcloundTimestamps:
+            matched_list.append(i+1)
+    matched_list.insert(0,0)
+    f=open('./Results/Interior/matchStamps.txt', 'w')
+    for i in range(len(matched_list)):
+        f.write(PointcloundTimestamps[i])
+        f.write('----------')
+        f.write(str(matched_list[i]))
+        f.write('\n')
+    f.close()
+    Deviat, Errors = Read_registration('../Registration/results/')
+    dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
+    Registration_switch = True
     total_images = len(ControlTimestamps) #Total number of steps
-    #Control input for each step. Currently, they are the same control inputs.
-    #TODO: User specify which particle(particles) to control; Current, I pick up a surface particle randomly.
-    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar)
+    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, Deviat, Errors, matched_list, Registration_switch)
