@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+#find_package(PythonInterp 3 REQUIRED)
+#find_package(PythonLibs 3 REQUIRED)
 
 #project(visualization)
 project(registration)
 
 find_package(PCL 1.2 REQUIRED)
-
+#add_subdirectory(pybind11)
+find_package(pybind11 REQUIRED)
 SET(CMAKE_BUILD_TYPE "Debug")
 SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
@@ -14,5 +17,7 @@ include_directories(${PCL_INCLUDE_DIRS} /usr/include/pcl-1.8/)
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable (registration registration.cpp)
+
+pybind11_add_module(registration registration.cpp)
+
 target_link_libraries (registration ${PCL_LIBRARIES})
