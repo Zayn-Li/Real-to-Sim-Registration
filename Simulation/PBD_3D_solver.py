@@ -59,7 +59,7 @@ Registration_index = scalar()
 Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
-gravity = [0, 0, 0] #direction (x,y,z) accelaration
+gravity = [0, 6.9, 6.9] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -208,7 +208,7 @@ def apply_position_deltas(n: ti.i32):
         # -1 -> fixed particles
         # 1 -> actuated particles (f)
         # else -> other particles
-        if actuation_type[i] != 1: #or if actuation_type[i] == 0
+        if actuation_type[i] == 0: #or if actuation_type[i] != 1
             x[i] += position_delta_tmp[i]
 
 @ti.kernel
@@ -228,7 +228,7 @@ def new_particle(pos_x: ti.f32, pos_y: ti.f32, pos_z: ti.f32, control_type: ti.i
     #assign control label to each particle(-1,1,0)
     if control_type == 0:
         actuation_type[new_particle_id] = -1 #fixed
-        mass[new_particle_id] = 10000000
+        mass[new_particle_id] = 100000000  #100000000 fixed
     elif control_type == 1:
         actuation_type[new_particle_id] = 1  #actuated
         mass[new_particle_id] = 1
@@ -268,7 +268,8 @@ def apply_shape_delta(n: ti.i32):
         # -1 -> fixed particles
         # 1 -> actuated particles (f)
         # else -> other particles
-        if actuation_type[i] == 0: #or if actuation_type[i] == 0
+        if actuation_type[i] == 0:
+        #if actuation_type[i] != 1: #or if actuation_type[i] == 0
             x[i] += shape_delta[i]
 
 @ti.kernel
@@ -334,10 +335,11 @@ def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness, Reg
     #the first three steps -> only consider external force
     old_posi(number_particles)
     #old_X = old_x.to_numpy()
+    old_X = x.to_numpy()
     substep(number_particles, x_, y_, z_)
     Position_update(number_particles)
     for i in range(pbd_num_iters):
-        old_X = x.to_numpy()
+        #old_X = x.to_numpy()
         constraint_neighbors.fill(-1)
         find_spring_constraint(number_particles)
         volumn_constraint_num.fill(0)
@@ -346,11 +348,16 @@ def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness, Reg
         stretch_constraint(number_particles)
         volumn_constraint(number_tetra)
         apply_position_deltas(number_particles)
-        new_X = x.to_numpy()
+        #new_X = x.to_numpy()
         #shape matching
-        DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
-        shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
-        apply_shape_delta(number_particles)
+        #DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
+        #shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
+        #apply_shape_delta(number_particles)
+    new_X = x.to_numpy()
+    #shape matching
+    DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
+    shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
+    apply_shape_delta(number_particles)
     if Registration == True:
         apply_regis_delta(number_particles) #should be put inside the loop
     updata_velosity(number_particles)
@@ -727,6 +734,6 @@ if __name__ == '__main__':
     Deviat, Errors = Read_registration('../Registration/results/')
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
-    Registration_switch = True
+    Registration_switch = False
     total_images = len(ControlTimestamps) #Total number of steps
     solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, Deviat, Errors, matched_list, Registration_switch)
