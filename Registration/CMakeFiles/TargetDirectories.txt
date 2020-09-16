@@ -1,3 +1,0 @@
-/home/zihan/MeshReconstruction/Registration/Registration/Registration/CMakeFiles/rebuild_cache.dir
-/home/zihan/MeshReconstruction/Registration/Registration/Registration/CMakeFiles/registration.dir
-/home/zihan/MeshReconstruction/Registration/Registration/Registration/CMakeFiles/edit_cache.dir

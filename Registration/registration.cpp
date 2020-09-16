@@ -4,24 +4,7 @@
 #include <fstream>
 #include <vector>
 
-#include <pcl/io/pcd_io.h>
-#include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/surface/gp3.h>
-#include <pcl/io/ply_io.h>
-
-#include <pcl/surface/mls.h>
-
-#include <pcl/ModelCoefficients.h>
-#include <pcl/filters/project_inliers.h>
-#include <pcl/filters/radius_outlier_removal.h>
-
-#include <pcl/common/transforms.h>
-#include <pcl/point_cloud.h>
-#include <pcl/surface/concave_hull.h>
-#include <pcl/filters/extract_indices.h>
-//#include <pcl/point_types.h>
-
+#include "mesh.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
@@ -30,24 +13,14 @@ using namespace std;
 
 // int main(int argc, char** argv)
 // {
-int RegistrationInit(string init_path, string track_path)    
+int RegistrationInit(const char* init_path, const char* track_path)    
 {
-    pcl::PointCloud<pcl::PointXYZ> surf_init;
-    pcl::PointCloud<pcl::PointXYZ> surf_track;
+    Mesh surf_init;
+    Mesh surf_track;
 
-    pcl::PolygonMesh temp;
-    // string file[17] = {"00","05","11","17","23","29","35","41","47","53","61","65","71","76","81","84","88"};
+    surf_init.ImportMeshFromPly(init_path); 
+    surf_track.ImportMeshFromPly(track_path);
 
-
-    // for(int i_file = 0;i_file<17;i_file++)
-    // {
-        // int i_file = 0;
-
-    pcl::io::loadPLYFile (init_path, temp);  
-    pcl::fromPCLPointCloud2 (temp.cloud, surf_init);
-
-    pcl::io::loadPLYFile (track_path, temp);  
-    pcl::fromPCLPointCloud2 (temp.cloud, surf_track);     
     static double SDF[100][60][55];
     static int id_close[100][60][55];
     double dist_new;
@@ -68,10 +41,10 @@ int RegistrationInit(string init_path, string track_path)
             {
                 dist = 1;
 
-                for (int i_surf_pt = 0; i_surf_pt<surf_init.width; i_surf_pt++)
+                for (int i_surf_pt = 0; i_surf_pt<surf_init.numVertices; i_surf_pt++)
                 {
-                    dist_new = pow(surf_init.points[i_surf_pt].x - offset_x - i*0.001,2) + pow(surf_init.points[i_surf_pt].y - offset_y - j*0.001,2)
-                    + pow(surf_init.points[i_surf_pt].z - offset_z - k*0.001,2);
+                    dist_new = pow(surf_init.m_positions[i_surf_pt].x - offset_x - i*0.001,2) + pow(surf_init.m_positions[i_surf_pt].y - offset_y - j*0.001,2)
+                    + pow(surf_init.m_positions[i_surf_pt].z - offset_z - k*0.001,2);
                     if (dist_new < dist)
                     {
                         dist = dist_new;
@@ -125,17 +98,21 @@ int RegistrationInit(string init_path, string track_path)
         }
 	}
 	fp2.close();
+    printf("init good\n");
     return 0;
 }
 
-int RegistrationError(string init_path, string sim_path, string obs_path, string out_path, string out_path2)   
+int RegistrationError(const char* init_path, const char* sim_path, const char* obs_path, const char* out_path, const char* out_path2)   
 {
-    pcl::PointCloud<pcl::PointXYZ> surf_sim;
-    pcl::PCLPointCloud2 surf_pt_2;
-    pcl::PointCloud<pcl::PointXYZ> surf_init;
+    Mesh surf_init;
+    Mesh surf_sim;
+    Mesh surf_obs;
 
-    pcl::PointCloud<pcl::PointXYZ> surf_obs;
-    pcl::PolygonMesh temp;
+    surf_init.ImportMeshFromPly(init_path);
+    surf_sim.ImportMeshFromPly(sim_path);
+    surf_obs.ImportMeshFromPly(obs_path);
+
+    printf("read ply good\n");
     // string file[17] = {"00","05","11","17","23","29","35","41","47","53","61","65","71","76","81","84","88"};
     double err_total;
     
@@ -144,19 +121,12 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
     double offset_z = 0.075; //0.119
     // for(int i_file = 0;i_file<17;i_file++)
     // {
-        // int i_file = 0;
+    // int i_file = 0;
     static double SDF[100][60][55];
     static int id_close[100][60][55];
 
-    pcl::io::loadPLYFile (init_path, temp);  
-    pcl::fromPCLPointCloud2 (temp.cloud, surf_init);
-    pcl::io::loadPLYFile (sim_path, temp);  
-    pcl::fromPCLPointCloud2 (temp.cloud, surf_sim); 
-   
-    pcl::io::loadPLYFile (obs_path, temp);  
-    pcl::fromPCLPointCloud2 (temp.cloud, surf_obs);   
-        // static pcl::PointXYZ eul_deform[90][50][45];
-    static pcl::PointXYZ eul_after_def[100][60][55];
+    // static pcl::PointXYZ eul_deform[90][50][45];
+    Point3 eul_after_def[100][60][55];
 	
     std::fstream fp("./SDF.txt", std::ios::in);
 	if (!fp.is_open())
@@ -175,7 +145,7 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
         }
 	}
 	fp.close();
-
+    printf("SDF good\n");
 	std::fstream fp2("./closest_points.txt", std::ios::in); 
 	if (!fp2.is_open())
 	{
@@ -193,16 +163,18 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
         }
 	}
 	fp2.close();
-
+    printf("CP good\n");
     // deformation of surface point
-    pcl::PointXYZ pt_deform[surf_init.width];
-    for (int i_pt=0;i_pt<surf_init.width;i_pt++)
+
+    printf("Init: %d Sim: %d\n",surf_init.numVertices,surf_sim.numVertices);
+    Point3 pt_deform[surf_init.numVertices];
+    for (int i_pt=0;i_pt<surf_init.numVertices;i_pt++)
     {
-        pt_deform[i_pt].x = surf_sim.points[i_pt].x-surf_init.points[i_pt].x;
-        pt_deform[i_pt].y = surf_sim.points[i_pt].y-surf_init.points[i_pt].y;
-        pt_deform[i_pt].z = surf_sim.points[i_pt].z-surf_init.points[i_pt].z;
+        pt_deform[i_pt].x = surf_sim.m_positions[i_pt].x-surf_init.m_positions[i_pt].x;
+        pt_deform[i_pt].y = surf_sim.m_positions[i_pt].y-surf_init.m_positions[i_pt].y;
+        pt_deform[i_pt].z = surf_sim.m_positions[i_pt].z-surf_init.m_positions[i_pt].z;
     }
-    
+    printf("deformation good\n");
 
     // the eular grid of simulated deformation
     
@@ -216,24 +188,24 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
             }
         }
     }
-
+   
     // find the interpolation coefficient
 
     double alpha,beta,gamma,alpha_g,beta_g,gamma_g,coeff_x,coeff_y,coeff_z;
     int i_grid,j_grid,k_grid,i_grid_g,j_grid_g,k_grid_g; 
-    pcl::PointXYZ pt[8];  
+    Point3 pt[8];  
     double err_grid[8];
-    double err_pt[surf_obs.width];
+    double err_pt[surf_obs.numVertices];
 
-    for (int i_pt=0;i_pt<surf_obs.width;i_pt++)
+    for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
     {
         // find the interpolation coefficient
-        i_grid = floor((surf_obs.points[i_pt].x - offset_x)*1000);
-        alpha = (surf_obs.points[i_pt].x - offset_x)*1000 - i_grid;
-        j_grid = floor((surf_obs.points[i_pt].y - offset_y)*1000);
-        beta = (surf_obs.points[i_pt].y - offset_y)*1000 - j_grid;
-        k_grid = floor((surf_obs.points[i_pt].z - offset_z)*1000);
-        gamma = (surf_obs.points[i_pt].z - offset_z)*1000 - k_grid;             
+        i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*1000);
+        alpha = (surf_obs.m_positions[i_pt].x - offset_x)*1000 - i_grid;
+        j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*1000);
+        beta = (surf_obs.m_positions[i_pt].y - offset_y)*1000 - j_grid;
+        k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*1000);
+        gamma = (surf_obs.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
 
         // inverse-transformation  
         for(int add_x=0; add_x<2;add_x++)
@@ -286,19 +258,19 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
                             + (1-alpha) * beta * gamma * err_grid[3] + (1-alpha) * beta * (1-gamma) * err_grid[2] + (1-alpha) * (1-beta) * gamma * err_grid[1] + (1-alpha) * (1-beta) * (1-gamma) * err_grid[0];
         err_total += err_pt[i_pt];
     }
-
+    printf("error total good\n");
     double err_temp;
-    pcl::PointCloud<pcl::PointXYZ> pt_dev;
-    pt_dev = surf_init;
-    for (int i_dev_pt=0;i_dev_pt<surf_init.width;i_dev_pt++)
+    Mesh pt_dev;
+    pt_dev.ImportMeshFromPly(init_path);
+    for (int i_dev_pt=0;i_dev_pt<surf_init.numVertices;i_dev_pt++)
     {
         for (int dev_ax =0;dev_ax<3;dev_ax++)
         {    
-            for (int i_pt=0;i_pt<surf_init.width;i_pt++)
+            for (int i_pt=0;i_pt<surf_init.numVertices;i_pt++)
             {
-                pt_deform[i_pt].x = surf_sim.points[i_pt].x-surf_init.points[i_pt].x;
-                pt_deform[i_pt].y = surf_sim.points[i_pt].y-surf_init.points[i_pt].y;
-                pt_deform[i_pt].z = surf_sim.points[i_pt].z-surf_init.points[i_pt].z;        
+                pt_deform[i_pt].x = surf_sim.m_positions[i_pt].x-surf_init.m_positions[i_pt].x;
+                pt_deform[i_pt].y = surf_sim.m_positions[i_pt].y-surf_init.m_positions[i_pt].y;
+                pt_deform[i_pt].z = surf_sim.m_positions[i_pt].z-surf_init.m_positions[i_pt].z;        
                 if (i_pt == i_dev_pt)
                 {
                     if(dev_ax==0) pt_deform[i_pt].x += 0.0001;            
@@ -326,15 +298,15 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
             
             err_temp = 0;
 
-            for (int i_pt=0;i_pt<surf_obs.width;i_pt++)
+            for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
             {
                 // find the interpolation coefficient
-                i_grid = floor((surf_obs.points[i_pt].x - offset_x)*1000);
-                alpha = (surf_obs.points[i_pt].x - offset_x)*1000 - i_grid;
-                j_grid = floor((surf_obs.points[i_pt].y - offset_y)*1000);
-                beta = (surf_obs.points[i_pt].y - offset_y)*1000 - j_grid;
-                k_grid = floor((surf_obs.points[i_pt].z - offset_z)*1000);
-                gamma = (surf_obs.points[i_pt].z - offset_z)*1000 - k_grid;             
+                i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*1000);
+                alpha = (surf_obs.m_positions[i_pt].x - offset_x)*1000 - i_grid;
+                j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*1000);
+                beta = (surf_obs.m_positions[i_pt].y - offset_y)*1000 - j_grid;
+                k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*1000);
+                gamma = (surf_obs.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
 
                 // inverse-transformation  
                 for(int add_x=0; add_x<2;add_x++)
@@ -390,14 +362,14 @@ int RegistrationError(string init_path, string sim_path, string obs_path, string
                 
             }
             
-            if(dev_ax==0) pt_dev.points[i_dev_pt].x = (err_temp-err_total) * 10000;            
-            else if(dev_ax==1) pt_dev.points[i_dev_pt].y = (err_temp-err_total) * 10000;
-            else if(dev_ax==2) pt_dev.points[i_dev_pt].z = (err_temp-err_total) * 10000;            
+            if(dev_ax==0) pt_dev.m_positions[i_dev_pt].x = (err_temp-err_total) * 10000;            
+            else if(dev_ax==1) pt_dev.m_positions[i_dev_pt].y = (err_temp-err_total) * 10000;
+            else if(dev_ax==2) pt_dev.m_positions[i_dev_pt].z = (err_temp-err_total) * 10000;            
             
         }
     }
-    pcl::io::savePLYFile (out_path, pt_dev);  
-        // cout << err_total << endl;
+    printf("derivative good\n");
+    pt_dev.ExportToPly(out_path);
     
 	std::ofstream wfile(out_path2);
 
