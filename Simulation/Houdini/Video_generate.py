@@ -2,7 +2,7 @@
 import os
 import cv2
 import time
-
+import sys
 # 图片合成视频
 def picvideo(path,size,total_images):
     # path = r'C:\Users\Administrator\Desktop\1\huaixiao\\'#文件路径
@@ -24,4 +24,5 @@ def picvideo(path,size,total_images):
 
     video.release() #释放
 
-picvideo('./top_view',(1280, 720),88)
+dir = sys.argv[1]
+picvideo(dir,(1280, 720),88)

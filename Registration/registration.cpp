@@ -32,7 +32,6 @@ int RegistrationInit(const char* init_path, const char* track_path)
     double offset_y = -0.025; //0.023
     double offset_z = 0.075; //0.119
     // the SDF grid of initial frame
-
     for (int i =0; i<100 ;i++)
     {
         for (int j =0; j<60 ;j++)
@@ -40,9 +39,8 @@ int RegistrationInit(const char* init_path, const char* track_path)
             for (int k =0; k<55 ;k++)
             {
                 dist = 1;
-
                 for (int i_surf_pt = 0; i_surf_pt<surf_init.numVertices; i_surf_pt++)
-                {
+                {   
                     dist_new = pow(surf_init.m_positions[i_surf_pt].x - offset_x - i*0.001,2) + pow(surf_init.m_positions[i_surf_pt].y - offset_y - j*0.001,2)
                     + pow(surf_init.m_positions[i_surf_pt].z - offset_z - k*0.001,2);
                     if (dist_new < dist)
@@ -56,7 +54,6 @@ int RegistrationInit(const char* init_path, const char* track_path)
             }        
         }       
     }
-
     //point matching(tracking)
 
 	std::ofstream fp("./SDF.txt", std::ios::trunc);
@@ -98,7 +95,6 @@ int RegistrationInit(const char* init_path, const char* track_path)
         }
 	}
 	fp2.close();
-    printf("init good\n");
     return 0;
 }
 
@@ -112,7 +108,6 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     surf_sim.ImportMeshFromPly(sim_path);
     surf_obs.ImportMeshFromPly(obs_path);
 
-    printf("read ply good\n");
     // string file[17] = {"00","05","11","17","23","29","35","41","47","53","61","65","71","76","81","84","88"};
     double err_total;
     
@@ -145,7 +140,6 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
         }
 	}
 	fp.close();
-    printf("SDF good\n");
 	std::fstream fp2("./closest_points.txt", std::ios::in); 
 	if (!fp2.is_open())
 	{
@@ -163,7 +157,6 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
         }
 	}
 	fp2.close();
-    printf("CP good\n");
     // deformation of surface point
 
     printf("Init: %d Sim: %d\n",surf_init.numVertices,surf_sim.numVertices);
@@ -174,7 +167,6 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
         pt_deform[i_pt].y = surf_sim.m_positions[i_pt].y-surf_init.m_positions[i_pt].y;
         pt_deform[i_pt].z = surf_sim.m_positions[i_pt].z-surf_init.m_positions[i_pt].z;
     }
-    printf("deformation good\n");
 
     // the eular grid of simulated deformation
     
@@ -258,7 +250,6 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
                             + (1-alpha) * beta * gamma * err_grid[3] + (1-alpha) * beta * (1-gamma) * err_grid[2] + (1-alpha) * (1-beta) * gamma * err_grid[1] + (1-alpha) * (1-beta) * (1-gamma) * err_grid[0];
         err_total += err_pt[i_pt];
     }
-    printf("error total good\n");
     double err_temp;
     Mesh pt_dev;
     pt_dev.ImportMeshFromPly(init_path);
@@ -368,7 +359,6 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             
         }
     }
-    printf("derivative good\n");
     pt_dev.ExportToPly(out_path);
     
 	std::ofstream wfile(out_path2);

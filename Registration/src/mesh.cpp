@@ -250,11 +250,6 @@ void Mesh::ExportToPly(const char* path)
 		file  << v.x << " " << v.y << " " << v.z << endl;
 	}
 
-	for (uint32_t i=0; i < numFaces; ++i)
-	{
-		file << char('3') << " " << uint32_t(m_indices[i*3]) << " " << uint32_t(m_indices[i*3+1]) << " " << uint32_t(m_indices[i*3+2]) << endl;
-	}
-
 }
 
 

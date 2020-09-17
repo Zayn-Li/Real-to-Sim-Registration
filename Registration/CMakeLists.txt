@@ -8,7 +8,11 @@ project(registration)
 #find_package(PCL 1.2 REQUIRED)
 add_subdirectory(pybind11)
 #find_package(pybind11 REQUIRED)
+<<<<<<< HEAD
+SET(CMAKE_BUILD_TYPE "Release")
+=======
 SET(CMAKE_BUILD_TYPE "Debug")
+>>>>>>> 05fb4b4564790261c5d7db3251d1236fc495f2bf
 SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 add_compile_options(-g)

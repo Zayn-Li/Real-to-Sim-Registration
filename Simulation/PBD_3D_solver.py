@@ -703,7 +703,7 @@ def Read_registration(dir):
                     line[index] = float(line[index])
             tmp.append(line)
         f.close()
-        tmp = tmp[30:-1]  #remove the header information
+        tmp = tmp[9:]  #remove the header information
         Deviat.append(tmp)
         #764 surface vertices that will be corrected
     return Deviat, errors
@@ -734,6 +734,7 @@ if __name__ == '__main__':
     Deviat, Errors = Read_registration('../Registration/results/')
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
-    Registration_switch = False
+    Registration_switch = True
     total_images = len(ControlTimestamps) #Total number of steps
     solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, Deviat, Errors, matched_list, Registration_switch)
+
