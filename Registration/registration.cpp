@@ -110,7 +110,7 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 
     // string file[17] = {"00","05","11","17","23","29","35","41","47","53","61","65","71","76","81","84","88"};
     double err_total;
-    
+    err_total = 0;
     double offset_x = -0.045; //0.045
     double offset_y = -0.025; //0.023
     double offset_z = 0.075; //0.119
@@ -368,6 +368,18 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
         wfile << "ERROR" << std::endl;
         wfile << err_total << std::endl;
     }
+
+	// for (int i = 0; i < 100; i++)
+	// {
+    //     for (int j = 0; j < 60; j++)
+	//     {
+    //     	for (int k = 0; k < 55; k++)
+	//         {
+    //             SDF[i][j][k] = 0;
+    //             id_close[i][j][k]
+    //         }
+    //     }
+	// }    
 
     return 0;
 }
