@@ -555,7 +555,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     #end:setup rendering offscreen
     iteration = 0
     frame = 0
-    Registraion_start = 30
+    Registraion_start = 33
     while iteration <= total_images: #total simulation steps
         if iteration % 1 == 0: #output every n iterations(n = 1 here)
             X = x.to_numpy()[original_index] #extract surface points
@@ -575,7 +575,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                 x_ = ControlTrajectory[iteration][0]
                 y_ = ControlTrajectory[iteration][1]
                 z_ = ControlTrajectory[iteration][2]
-                if Registration_switch and iteration + 1 in matched_lists:
+                if Registration_switch and iteration + 1 == 23:
                     print("Input observation data -> Registration correction")
                     #the first three steps -> only consider external force
                     old_posi(n)
@@ -594,7 +594,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         #print("This is ", i , "th iteration.")
                         stretch_constraint(n)
                         volumn_constraint(number_tetra)
-                        apply_position_deltas(n)
+                        #apply_position_deltas(n)
                         X = x.to_numpy()[original_index] #extract surface points
                         iterior_x = X[:,0] / scalar
                         iterior_y = X[:,1] / scalar
@@ -616,6 +616,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         Deviat, Errors = Read_registration("./eg_err.txt", "./eg_der.txt")
                         tmp = np.array(Errors[0][0],dtype = np.float32)
                         Registration_error.from_numpy(tmp)
+                        print("Error:")
                         print(tmp)
                         #Registration index
                         #1 -> seleced surface mesh
@@ -632,7 +633,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                                 np_grad = np.array(Deviat[0][tmp_index],dtype=np.float32)
                                 tmp[i,:] = np_grad
                                 tmp_index+=1
-                        print(tmp)
                         Registration_lambda[None] = Registration_error[None] / np.sum(np.sum(tmp ** 2, axis = 1))
                         Registration_grad.from_numpy(tmp)
                         apply_regis_delta(n)

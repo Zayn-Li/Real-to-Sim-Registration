@@ -48,9 +48,9 @@ registration.reg_init("./surface_mesh/tetgenq1.4/initial.ply","./surface_mesh/te
 #                      string   path_and_filename_you_would_like_to_save_total_error_"xxxxx.txt")
 tmp_ply = "./Registration/tmp_00000" + str(0) +".ply"
 Registraion_source = "./mesh_with_deform/" + str(30) + ".ply"
-registration.reg_err("./surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
-Devir, error = Read_registration("./eg_err.txt", "./eg_der.txt")
-print(error)
+#registration.reg_err("./surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
+#Devir, error = Read_registration("./eg_err.txt", "./eg_der.txt")
+#print(error)
 tmp_ply = "./Registration/tmp_00000" + str(1) +".ply"
 registration.reg_err("./surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
 Devir, error = Read_registration("./eg_err.txt", "./eg_der.txt")
