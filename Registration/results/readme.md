@@ -1,0 +1,3 @@
+error.txt 保存了每一帧的总error值
+
+deriv_xxxxxx.ply 保存的是对与每个点x，y，z方向的导数，点的顺序和你发的surface_mesh的顺序一致。你的surface mesh 的前764个点是我们关心的上表面，只有这些点有correction，剩下的点你可以设置成导数为0，不受registration影响。我只是借用了ply保存点的格式，它的header是没有意义的，不用管它
