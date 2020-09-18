@@ -13,6 +13,7 @@ import time
 import os
 import copy
 import re
+import registration
 
 
 ti.init(debug=False,arch=ti.cpu) #cpu or cuda
@@ -59,7 +60,7 @@ Registration_index = scalar()
 Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
-gravity = [0, 6.9, 6.9] #direction (x,y,z) accelaration
+gravity = [0, 0, 0] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -331,7 +332,8 @@ def shape_matching(stiffness, Clusters, old_X, new_X):
             DeltaX[Clusters[index][i],:] += x_offset / cluster_constraint_num[Clusters[index][i]]
     return DeltaX
 
-def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness, Registration = False):
+
+def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
     #the first three steps -> only consider external force
     old_posi(number_particles)
     #old_X = old_x.to_numpy()
@@ -358,8 +360,6 @@ def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness, Reg
     DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
     shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
     apply_shape_delta(number_particles)
-    if Registration == True:
-        apply_regis_delta(number_particles) #should be put inside the loop
     updata_velosity(number_particles)
 
 #gui = ti.GUI('Mass Spring System', res=(640, 640), background_color=0xdddddd)
@@ -428,6 +428,14 @@ class Render():
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
             self.mesh_pose_current[2,3] = -np.min(fuze_trimesh_current.vertices[:,2])
 
+    def update_mesh_regis(self):
+        #for registration part
+        fuze_trimesh_current = trimesh.load("./Registration/tmp_000000.ply")
+        self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
+        self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
+        self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
+        self.mesh_pose_current[2,3] = -np.min(fuze_trimesh_current.vertices[:,2])
+    
     def render(self):
         self.v.render_lock.acquire()
         print("This is", self.iteration, "iteration")
@@ -438,12 +446,21 @@ class Render():
         self.v.render_lock.release()
         self.iteration += 1
 
+    def render_regis(self, loop_index):
+        self.v.render_lock.acquire()
+        print("This is", loop_index, "iteration")
+        #deformable object
+        self.node_current.mesh = self.mesh_current
+        self.node_current.matrix = self.mesh_pose_current
+        #deformable object
+        self.v.render_lock.release()
+
 damping[None] = 30
 
 def L2_distance(p1, p2):
     return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2
 
-def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, Deviat, Errors, matched_lists, Registration_switch):
+def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch):
     #Read all mesh points from txt.file
     points = []
     with open(dir_path + 'node', 'r') as f:
@@ -481,13 +498,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     print("Number of surface vertices:", len(surface_points))
     original_index = surface_tri
     new_index = list(range(len(surface_tri)))
-    #Registration index
-    #1 -> seleced surface mesh
-    tmp = np.zeros(max_num_particles,dtype=np.float32)
-    for i in new_index[0:len(Deviat[0])]:
-        tmp[i] = 1
-    Registration_index.from_numpy(tmp)
-    #Registration index
     surface_only_tri = [] #facet information for only surface vertices
     for line in data[1: len(data) - 1]:
         odom = line.split()
@@ -545,6 +555,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     #end:setup rendering offscreen
     iteration = 0
     frame = 0
+    Registraion_start = 30
     while iteration <= total_images: #total simulation steps
         if iteration % 1 == 0: #output every n iterations(n = 1 here)
             X = x.to_numpy()[original_index] #extract surface points
@@ -564,24 +575,76 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                 x_ = ControlTrajectory[iteration][0]
                 y_ = ControlTrajectory[iteration][1]
                 z_ = ControlTrajectory[iteration][2]
-                if Registration_switch and iteration + 1 in matched_lists and iteration + 1 == 5:
-                    print("Input camera data -> Registration correction")
-                    index = matched_lists.index(iteration + 1)
-                    tmp = np.array(Errors[index][0],dtype = np.float32)
-                    Registration_error.from_numpy(tmp)
-                    tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
-                    tmp_index = 0
-                    selected_index = Registration_index.to_numpy()
-                    for i in range(max_num_particles):
-                        if selected_index[i] == 1:
-                            np_grad = np.array(Deviat[index][tmp_index],dtype=np.float32)
-                            tmp[i,:] = np_grad
-                            tmp_index+=1
-                    Registration_lambda[None] = Registration_error[None] / np.sum(np.sum(tmp ** 2, axis = 1))
-                    Registration_grad.from_numpy(tmp)
-                    forward(n, number_tetra, x_, y_, z_, Clusters, stiffness, True) #x,y,z control input
+                if Registration_switch and iteration + 1 in matched_lists:
+                    print("Input observation data -> Registration correction")
+                    #the first three steps -> only consider external force
+                    old_posi(n)
+                    #old_X = old_x.to_numpy()
+                    old_X = x.to_numpy()
+                    substep(n, x_, y_, z_)
+                    Position_update(n)
+                    tmp_prefix_ascii='./Registration/tmp.ply'
+                    for i in range(pbd_num_iters):
+                        print("This is", i, "iteration for the inner loop.")
+                        #old_X = x.to_numpy()
+                        constraint_neighbors.fill(-1)
+                        find_spring_constraint(n)
+                        volumn_constraint_num.fill(0)
+                        find_volumn_constraint(number_tetra)
+                        #print("This is ", i , "th iteration.")
+                        stretch_constraint(n)
+                        volumn_constraint(number_tetra)
+                        apply_position_deltas(n)
+                        X = x.to_numpy()[original_index] #extract surface points
+                        iterior_x = X[:,0] / scalar
+                        iterior_y = X[:,1] / scalar
+                        iterior_z = X[:,2] / scalar
+                        writer_tmp = ti.PLYWriter(num_vertices=len(surface_tri), num_faces=len(surface_only_tri), face_type="tri")
+                        writer_tmp.add_vertex_pos(iterior_x, iterior_y, iterior_z)
+                        writer_tmp.add_faces(interior_mesh)
+                        writer_tmp.export_frame_ascii(i, tmp_prefix_ascii)
+                        off_screen.update_mesh_regis()
+                        off_screen.render_regis(i)
+                        Registraion_source = "./mesh_with_deform/" + str(Registraion_start) + ".ply"
+                        if i <= 9:
+                            tmp_ply = "./Registration/tmp_00000" + str(i) +".ply"
+                        else:
+                            tmp_ply = "./Registration/tmp_0000" + str(i) +".ply"
+                        print("Regis source:", Registraion_source)
+                        print("tmp_ply:", tmp_ply)
+                        registration.reg_err("./surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
+                        Deviat, Errors = Read_registration("./eg_err.txt", "./eg_der.txt")
+                        tmp = np.array(Errors[0][0],dtype = np.float32)
+                        Registration_error.from_numpy(tmp)
+                        print(tmp)
+                        #Registration index
+                        #1 -> seleced surface mesh
+                        tmp = np.zeros(max_num_particles,dtype=np.float32)
+                        for i in new_index[0:len(Deviat[0])]:
+                            tmp[i] = 1
+                        Registration_index.from_numpy(tmp)
+                        #Registration index
+                        tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
+                        tmp_index = 0
+                        selected_index = Registration_index.to_numpy()
+                        for i in range(max_num_particles):
+                            if selected_index[i] == 1:
+                                np_grad = np.array(Deviat[0][tmp_index],dtype=np.float32)
+                                tmp[i,:] = np_grad
+                                tmp_index+=1
+                        print(tmp)
+                        Registration_lambda[None] = Registration_error[None] / np.sum(np.sum(tmp ** 2, axis = 1))
+                        Registration_grad.from_numpy(tmp)
+                        apply_regis_delta(n)
+                    new_X = x.to_numpy()
+                    #shape matching
+                    DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
+                    shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
+                    apply_shape_delta(n)
+                    updata_velosity(n)
+                    Registraion_start += 1
                 else:
-                    forward(n, number_tetra, x_, y_, z_, Clusters, stiffness, False) #x,y,z control input
+                    forward(n, number_tetra, x_, y_, z_, Clusters, stiffness) #x,y,z control input
             print("Next step!")
         iteration += 1
 
@@ -664,48 +727,34 @@ def Read_cluster(dir):
     f.close()
     return Clusters
 
-def Read_registration(dir):
-    file_names = os.listdir(dir)
-    error_file = 'None'
+def Read_registration(file_error, file_deriv):
     errors = []
-    if 'error.txt' in file_names:
-        error_file = 'error.txt'
-        f = open(dir + error_file)
-        iter_f = iter(f)
-        tmp = []
-        for line in iter_f:
-            line = line.split(" ")
-            #line = re.findall(r"\d+\.?\d*",line)
-            for index in range(len(line)):
-                if len(line[index]) > 2 and line[index][2].isdigit():
-                    line[index] = float(line[index])
-            tmp.append(line)
-        f.close()
-        errors = tmp[1:]
-    else:
-        print("No error file!")
+    f = open(file_error)
+    iter_f = iter(f)
     tmp = []
-    for file in file_names:
-        if 'ply' in file:
-            tmp.append(file)
-    file_names = tmp
-    file_names.sort(key= lambda x:int(x[x.index('_')+1:x.index('.')]))
+    for line in iter_f:
+        line = line.split(" ")
+        #line = re.findall(r"\d+\.?\d*",line)
+        for index in range(len(line)):
+            if len(line[index]) > 2 and line[index][2].isdigit():
+                line[index] = float(line[index])
+        tmp.append(line)
+    f.close()
+    errors = tmp[1:]
+    tmp = []
     Deviat = []
-    for dir_ in file_names:
-        dir_ = dir + dir_
-        f = open(dir_)
-        iter_f = iter(f)
-        tmp = []
-        for line in iter_f:
-            line = line.split(" ")
-            for index in range(len(line)):
-                if len(line[index]) > 3 and line[index][3].isdigit():
-                    line[index] = float(line[index])
-            tmp.append(line)
-        f.close()
-        tmp = tmp[9:]  #remove the header information
-        Deviat.append(tmp)
-        #764 surface vertices that will be corrected
+    f = open(file_deriv)
+    iter_f = iter(f)
+    for line in iter_f:
+        line = line.split(" ")
+        for index in range(len(line)):
+            if len(line[index]) > 3 and line[index][3].isdigit():
+                line[index] = float(line[index])
+        tmp.append(line)
+    f.close()
+    tmp = tmp[9:]  #remove the header information
+    Deviat.append(tmp)
+    #764 surface vertices that will be corrected
     return Deviat, errors
 
 if __name__ == '__main__':
@@ -716,6 +765,7 @@ if __name__ == '__main__':
     ControlParticleIndex = Read_ControlIndex(Thin_or_Thick)
     BaseParticleIndex = Read_BaseIndex(Thin_or_Thick)
     Clusters = Read_cluster('./volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
+    registration.reg_init("./surface_mesh/tetgenq1.4/initial.ply","./surface_mesh/tetgenq1.4/vol_mesh_" + Thin_or_Thick + "_tetgen.ply")
     scalar = 1
     offset = 0
     stiffness = 1
@@ -731,10 +781,10 @@ if __name__ == '__main__':
         f.write(str(matched_list[i]))
         f.write('\n')
     f.close()
-    Deviat, Errors = Read_registration('../Registration/results/')
+    #Deviat, Errors = Read_registration('../Registration/results/')
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
     Registration_switch = True
     total_images = len(ControlTimestamps) #Total number of steps
-    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, Deviat, Errors, matched_list, Registration_switch)
+    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch)
 
