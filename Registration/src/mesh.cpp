@@ -87,10 +87,12 @@ void Mesh::ImportMeshFromPly(const char* path)
     file >> buffer;
 
     PlyFormat format = eAscii;
+    uint32_t cam_prop = 0;
+    numFaces = 0;
 
 
     const uint32_t kMaxProperties = 16;
-    uint32_t numProperties = 0; 
+    uint32_t numProperties = 0;  
     float properties[kMaxProperties];
 
     bool vertexElement = false;
@@ -114,6 +116,11 @@ void Mesh::ImportMeshFromPly(const char* path)
                 vertexElement = true;
                 file >> numVertices;
             }
+            else if (strcmp(buffer, "camera") == 0) 
+            {
+                vertexElement = false;
+                file >> cam_prop;
+            }            
         }
         else if (strcmp(buffer, "format") == 0)
         {
@@ -132,7 +139,7 @@ void Mesh::ImportMeshFromPly(const char* path)
 
 			}
         }
-        else if (strcmp(buffer, "property") == 0)
+        else if (strcmp(buffer, "property") == 0 )
         {
             if (vertexElement)
                 ++numProperties;
