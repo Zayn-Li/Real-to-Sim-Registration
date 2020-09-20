@@ -243,7 +243,7 @@ void Mesh::ExportToPly(const char* path)
     file << "property list char uint32 vertex_indices" << endl;
     file << "end_header" << endl;
 
-	for (uint32_t i=1; i < numVertices; ++i)
+	for (uint32_t i=0; i < numVertices; ++i)
 	{
 		
         Point3 v = m_positions[i];

@@ -21,8 +21,8 @@ int RegistrationInit(const char* init_path, const char* track_path)
     surf_init.ImportMeshFromPly(init_path); 
     surf_track.ImportMeshFromPly(track_path);
 
-    static double SDF[100][60][55];
-    static int id_close[100][60][55];
+    static double SDF[200][120][110];
+    static int id_close[200][120][110];
     double dist_new;
     double dist = 1;
     int index_new;
@@ -32,17 +32,17 @@ int RegistrationInit(const char* init_path, const char* track_path)
     double offset_y = -0.025; //0.023
     double offset_z = 0.075; //0.119
     // the SDF grid of initial frame
-    for (int i =0; i<100 ;i++)
+    for (int i =0; i<200 ;i++)
     {
-        for (int j =0; j<60 ;j++)
+        for (int j =0; j<120 ;j++)
         {
-            for (int k =0; k<55 ;k++)
+            for (int k =0; k<110 ;k++)
             {
                 dist = 1;
                 for (int i_surf_pt = 0; i_surf_pt<surf_init.numVertices; i_surf_pt++)
                 {   
-                    dist_new = pow(surf_init.m_positions[i_surf_pt].x - offset_x - i*0.001,2) + pow(surf_init.m_positions[i_surf_pt].y - offset_y - j*0.001,2)
-                    + pow(surf_init.m_positions[i_surf_pt].z - offset_z - k*0.001,2);
+                    dist_new = pow(surf_init.m_positions[i_surf_pt].x - offset_x - i*0.0005,2) + pow(surf_init.m_positions[i_surf_pt].y - offset_y - j*0.0005,2)
+                    + pow(surf_init.m_positions[i_surf_pt].z - offset_z - k*0.0005,2);
                     if (dist_new < dist)
                     {
                         dist = dist_new;
@@ -63,11 +63,11 @@ int RegistrationInit(const char* init_path, const char* track_path)
 		printf("can't save SDF file\n");
 		return 1;
 	}
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 200; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 120; j++)
 	    {
-        	for (int k = 0; k < 55; k++)
+        	for (int k = 0; k < 110; k++)
 	        {
                 fp << SDF[i][j][k];
                 fp << " ";
@@ -83,11 +83,11 @@ int RegistrationInit(const char* init_path, const char* track_path)
 		printf("can't save closest points\n");
 		return 1;
 	}
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 200; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 120; j++)
 	    {
-        	for (int k = 0; k < 55; k++)
+        	for (int k = 0; k < 110; k++)
 	        {
                 fp2 << id_close[i][j][k];
                 fp2 << " ";
@@ -117,11 +117,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     // for(int i_file = 0;i_file<17;i_file++)
     // {
     // int i_file = 0;
-    static double SDF[100][60][55];
-    static int id_close[100][60][55];
+    static double SDF[200][120][110];
+    static int id_close[200][120][110];
 
     // static pcl::PointXYZ eul_deform[90][50][45];
-    Point3 eul_after_def[100][60][55];
+    static Point3 eul_after_def[200][120][110];
 	
     std::fstream fp("./SDF.txt", std::ios::in);
 	if (!fp.is_open())
@@ -129,11 +129,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 		printf("can't find SDF file\n");
 		return 1;
 	}
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 200; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 120; j++)
 	    {
-        	for (int k = 0; k < 55; k++)
+        	for (int k = 0; k < 110; k++)
 	        {
                 fp >> SDF[i][j][k];
             }
@@ -146,11 +146,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 		printf("can't find closest points\n");
 		return 1;
 	}
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 200; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 120; j++)
 	    {
-        	for (int k = 0; k < 55; k++)
+        	for (int k = 0; k < 110; k++)
 	        {
                 fp2 >> id_close[i][j][k];
             }
@@ -170,11 +170,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 
     // the eular grid of simulated deformation
     
-    for (int i =0; i<100 ;i++)
+    for (int i =0; i<200 ;i++)
     {
-        for (int j =0; j<60 ;j++)
+        for (int j =0; j<120 ;j++)
         {
-            for (int k =0; k<55 ;k++)
+            for (int k =0; k<110 ;k++)
             {
                 eul_after_def[i][j][k] = pt_deform[id_close[i][j][k]];
             }
@@ -192,12 +192,12 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
     {
         // find the interpolation coefficient
-        i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*1000);
-        alpha = (surf_obs.m_positions[i_pt].x - offset_x)*1000 - i_grid;
-        j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*1000);
-        beta = (surf_obs.m_positions[i_pt].y - offset_y)*1000 - j_grid;
-        k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*1000);
-        gamma = (surf_obs.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
+        i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*2000);
+        alpha = (surf_obs.m_positions[i_pt].x - offset_x)*2000 - i_grid;
+        j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*2000);
+        beta = (surf_obs.m_positions[i_pt].y - offset_y)*2000 - j_grid;
+        k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*2000);
+        gamma = (surf_obs.m_positions[i_pt].z - offset_z)*2000 - k_grid;             
 
         // inverse-transformation  
         for(int add_x=0; add_x<2;add_x++)
@@ -206,21 +206,21 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             {
                 for(int add_z=0; add_z<2;add_z++)
                 {
-                    pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].x;
-                    pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].y;
-                    pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].z;
+                    pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.0005 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].x;
+                    pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.0005 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].y;
+                    pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.0005 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].z;
                 }            
             }            
         }
         // compute error
         for(int i_grid_pt=0; i_grid_pt<8;i_grid_pt++)
         {        
-            i_grid_g = floor(pt[i_grid_pt].x*1000);
-            alpha_g = pt[i_grid_pt].x*1000 - i_grid_g;
-            j_grid_g = floor(pt[i_grid_pt].y*1000);
-            beta_g = pt[i_grid_pt].y*1000 - j_grid_g;
-            k_grid_g = floor(pt[i_grid_pt].z*1000);
-            gamma_g = pt[i_grid_pt].z*1000 - k_grid_g;  
+            i_grid_g = floor(pt[i_grid_pt].x*2000);
+            alpha_g = pt[i_grid_pt].x*2000 - i_grid_g;
+            j_grid_g = floor(pt[i_grid_pt].y*2000);
+            beta_g = pt[i_grid_pt].y*2000 - j_grid_g;
+            k_grid_g = floor(pt[i_grid_pt].z*2000);
+            gamma_g = pt[i_grid_pt].z*2000 - k_grid_g;  
             err_grid[i_grid_pt] = 0;
             
             for(int add_x=0; add_x<2;add_x++)
@@ -274,11 +274,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             // the eular grid of simulated deformation
 
             
-            for (int i =0; i<100 ;i++)
+            for (int i =0; i<200 ;i++)
             {
-                for (int j =0; j<60 ;j++)
+                for (int j =0; j<120 ;j++)
                 {
-                    for (int k =0; k<55 ;k++)
+                    for (int k =0; k<110 ;k++)
                     {
                         eul_after_def[i][j][k] = pt_deform[id_close[i][j][k]];
                     }
@@ -292,12 +292,12 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
             {
                 // find the interpolation coefficient
-                i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*1000);
-                alpha = (surf_obs.m_positions[i_pt].x - offset_x)*1000 - i_grid;
-                j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*1000);
-                beta = (surf_obs.m_positions[i_pt].y - offset_y)*1000 - j_grid;
-                k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*1000);
-                gamma = (surf_obs.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
+                i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*2000);
+                alpha = (surf_obs.m_positions[i_pt].x - offset_x)*2000 - i_grid;
+                j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*2000);
+                beta = (surf_obs.m_positions[i_pt].y - offset_y)*2000 - j_grid;
+                k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*2000);
+                gamma = (surf_obs.m_positions[i_pt].z - offset_z)*2000 - k_grid;             
 
                 // inverse-transformation  
                 for(int add_x=0; add_x<2;add_x++)
@@ -306,21 +306,21 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
                     {
                         for(int add_z=0; add_z<2;add_z++)
                         {
-                            pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].x;
-                            pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].y;
-                            pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].z;
+                            pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.0005 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].x;
+                            pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.0005 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].y;
+                            pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.0005 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].z;
                         }            
                     }            
                 }
                 // compute error
                 for(int i_grid_pt=0; i_grid_pt<8;i_grid_pt++)
                 {        
-                    i_grid_g = floor(pt[i_grid_pt].x*1000);
-                    alpha_g = pt[i_grid_pt].x*1000 - i_grid_g;
-                    j_grid_g = floor(pt[i_grid_pt].y*1000);
-                    beta_g = pt[i_grid_pt].y*1000 - j_grid_g;
-                    k_grid_g = floor(pt[i_grid_pt].z*1000);
-                    gamma_g = pt[i_grid_pt].z*1000 - k_grid_g;  
+                    i_grid_g = floor(pt[i_grid_pt].x*2000);
+                    alpha_g = pt[i_grid_pt].x*2000 - i_grid_g;
+                    j_grid_g = floor(pt[i_grid_pt].y*2000);
+                    beta_g = pt[i_grid_pt].y*2000 - j_grid_g;
+                    k_grid_g = floor(pt[i_grid_pt].z*2000);
+                    gamma_g = pt[i_grid_pt].z*2000 - k_grid_g;  
                     err_grid[i_grid_pt] = 0;
                     
                     for(int add_x=0; add_x<2;add_x++)
