@@ -385,6 +385,7 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     //     pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] + face_dev / double(numAvg[k]);
     // }    
 
+	// alternative average function start
     for (int k = 0; k < pt_dev.numVertices; k++)
     {
         numAvg[k]=0;
@@ -405,6 +406,7 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     {
         pt_dev_avg.m_positions[k] = pt_dev_avg.m_positions[k] / double(numAvg[k]+1);
     }
+// alternative average function end
     pt_dev_avg.ExportToPly(out_path);
     
 	std::ofstream wfile(out_path2);
