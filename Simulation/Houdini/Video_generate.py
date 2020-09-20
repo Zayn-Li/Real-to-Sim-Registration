@@ -12,7 +12,7 @@ def picvideo(path,size,total_images):
     fps = 20
     # size = (591,705) #图片的分辨率片
     file_path = path + '/demo' + ".mp4"#导出路径
-    fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')#不同视频编码对应不同视频格式（例：'I','4','2','0' 对应avi格式）
+    fourcc = cv2.VideoWriter_fourcc('I', '4', '2', '0')#不同视频编码对应不同视频格式（例：'I','4','2','0' 对应avi格式）
 
     video = cv2.VideoWriter( file_path, fourcc, fps, size )
 

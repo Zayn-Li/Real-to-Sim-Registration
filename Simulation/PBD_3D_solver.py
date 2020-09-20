@@ -45,6 +45,7 @@ epsolon = 1e-8 #digit accurary(important) -> adjustable
 volumn_epsolon = 1e-11
 
 x, v, old_x = vec(), vec(), vec()
+user_specify = ti.var(dt=real, shape=())
 actuation_type = scalar()
 # if rest_length[i, j] = 0, it means i and j are not connected
 rest_length = scalar()
@@ -278,7 +279,7 @@ def apply_regis_delta(n: ti.i32):
     for i in range(n):
         if Registration_index[i] == 1:
             mass_inv = 1 / mass[i]
-            x[i] -= Registration_lambda[None] * mass_inv * Registration_grad[i]
+            x[i] -=  user_specify[None] * Registration_lambda[None] * mass_inv * Registration_grad[i]
 
 def check_single_particle():
     cons = rest_length.to_numpy()
@@ -428,9 +429,12 @@ class Render():
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
             self.mesh_pose_current[2,3] = -np.min(fuze_trimesh_current.vertices[:,2])
 
-    def update_mesh_regis(self):
+    def update_mesh_regis(self,loop_index):
         #for registration part
-        fuze_trimesh_current = trimesh.load("./Registration/tmp_000000.ply")
+        if loop_index >= 0 and loop_index <= 9:
+            fuze_trimesh_current = trimesh.load("./Registration/tmp_00000" + str(loop_index) + ".ply")
+        else:
+            fuze_trimesh_current = trimesh.load("./Registration/tmp_0000" + str(loop_index) + ".ply")
         self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
         self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
         self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
@@ -555,7 +559,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     #end:setup rendering offscreen
     iteration = 0
     frame = 0
-    Registraion_start = 33
     while iteration <= total_images: #total simulation steps
         if iteration % 1 == 0: #output every n iterations(n = 1 here)
             X = x.to_numpy()[original_index] #extract surface points
@@ -575,7 +578,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                 x_ = ControlTrajectory[iteration][0]
                 y_ = ControlTrajectory[iteration][1]
                 z_ = ControlTrajectory[iteration][2]
-                if Registration_switch and iteration + 1 == 23:
+                if Registration_switch and iteration + 1 in matched_lists:
                     print("Input observation data -> Registration correction")
                     #the first three steps -> only consider external force
                     old_posi(n)
@@ -594,7 +597,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         #print("This is ", i , "th iteration.")
                         stretch_constraint(n)
                         volumn_constraint(number_tetra)
-                        #apply_position_deltas(n)
+                        apply_position_deltas(n)
                         X = x.to_numpy()[original_index] #extract surface points
                         iterior_x = X[:,0] / scalar
                         iterior_y = X[:,1] / scalar
@@ -603,9 +606,9 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         writer_tmp.add_vertex_pos(iterior_x, iterior_y, iterior_z)
                         writer_tmp.add_faces(interior_mesh)
                         writer_tmp.export_frame_ascii(i, tmp_prefix_ascii)
-                        off_screen.update_mesh_regis()
+                        off_screen.update_mesh_regis(i)
                         off_screen.render_regis(i)
-                        Registraion_source = "./mesh_with_deform/" + str(Registraion_start) + ".ply"
+                        Registraion_source = "./mesh_with_deform/obs_interp_ply/" + str(iteration + 1) + ".ply"
                         if i <= 9:
                             tmp_ply = "./Registration/tmp_00000" + str(i) +".ply"
                         else:
@@ -635,6 +638,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                                 tmp_index+=1
                         Registration_lambda[None] = Registration_error[None] / np.sum(np.sum(tmp ** 2, axis = 1))
                         Registration_grad.from_numpy(tmp)
+                        user_specify[None] = 0.1
                         apply_regis_delta(n)
                     new_X = x.to_numpy()
                     #shape matching
@@ -642,7 +646,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                     shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
                     apply_shape_delta(n)
                     updata_velosity(n)
-                    Registraion_start += 1
                 else:
                     forward(n, number_tetra, x_, y_, z_, Clusters, stiffness) #x,y,z control input
             print("Next step!")
@@ -774,13 +777,14 @@ if __name__ == '__main__':
         if ControlTimestamps[i] in PointcloundTimestamps:
             matched_list.append(i+1)
     matched_list.insert(0,0)
-    f=open('./Results/Interior/matchStamps.txt', 'w')
-    for i in range(len(matched_list)):
-        f.write(PointcloundTimestamps[i])
-        f.write('----------')
-        f.write(str(matched_list[i]))
-        f.write('\n')
-    f.close()
+    matched_list=list(range(89))
+    # f=open('./Results/Interior/matchStamps.txt', 'w')
+    # for i in range(len(matched_list)):
+    #     f.write(PointcloundTimestamps[i])
+    #     f.write('----------')
+    #     f.write(str(matched_list[i]))
+    #     f.write('\n')
+    # f.close()
     #Deviat, Errors = Read_registration('../Registration/results/')
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface

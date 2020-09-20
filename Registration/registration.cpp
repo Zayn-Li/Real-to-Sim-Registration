@@ -386,28 +386,28 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     // }    
 
 	// alternative average function start
-    for (int k = 0; k < pt_dev.numVertices; k++)
-    {
-        numAvg[k]=0;
-   
-    }    
-    for (int k = 0; k < pt_dev.numFaces*3; k++)
-    {
-        numAvg[pt_dev.m_indices[k]]++;
-    }
-    
-    for (int k = 0; k < pt_dev.numFaces; k++)
-    {
-        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]]);
-        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]]);
-        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3]]);
-    }    
-    for (int k = 0; k < pt_dev_avg.numVertices; k++)
-    {
-        pt_dev_avg.m_positions[k] = pt_dev_avg.m_positions[k] / double(numAvg[k]+1);
-    }
+//    for (int k = 0; k < pt_dev.numVertices; k++)
+//    {
+//        numAvg[k]=0;
+//
+//    }
+//    for (int k = 0; k < pt_dev.numFaces*3; k++)
+//    {
+//        numAvg[pt_dev.m_indices[k]]++;
+//    }
+//
+//    for (int k = 0; k < pt_dev.numFaces; k++)
+//    {
+//        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]]);
+//        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]]);
+//        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3]]);
+//    }
+//    for (int k = 0; k < pt_dev_avg.numVertices; k++)
+//    {
+//        pt_dev_avg.m_positions[k] = pt_dev_avg.m_positions[k] / double(numAvg[k]+1);
+//    }
 // alternative average function end
-    pt_dev_avg.ExportToPly(out_path);
+    pt_dev.ExportToPly(out_path);
     
 	std::ofstream wfile(out_path2);
 
