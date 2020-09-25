@@ -439,8 +439,12 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     int cl_idx[num_id];
     for (int j=0; j< num_id; j++)
         fp3 >> cl_idx[j];        
-            
+    fp3.close();        
     float numAvg[pt_dev.numVertices];
+    for (int k = 0; k < pt_dev.numVertices; k++)
+    {
+        numAvg[k]=0;
+    }    
     for (int k = 0; k < num_id; k++)
     {
         numAvg[cl_idx[k]]++;
@@ -493,7 +497,20 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     // cout << "diif_total:" << diff_total << diff_min << endl;
     // cout << "avg:" << pt_dev_direct.m_positions[10].x << "  " << pt_dev_direct.m_positions[10].y << "  " << pt_dev_direct.m_positions[10].z << "  " << endl;
     // cout << "cluster:" << clus_direct.x << "   " << clus_direct.y << "   " << clus_direct.z << "   " << endl;
-
+	
+    std::ofstream fp4("./numAvg.txt", std::ios::trunc);
+ 
+	if (!fp4.is_open())
+	{
+		printf("can't save SDF file\n");
+		return 1;
+	}
+    for (int k = 0; k < pt_dev.numVertices; k++)
+    {
+        fp4 << numAvg[k];
+        fp4 << "\n";
+    }
+	fp4.close();
 
     pt_dev_sm.ExportToPly(out_path);
     
