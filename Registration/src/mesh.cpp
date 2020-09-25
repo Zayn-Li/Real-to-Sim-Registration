@@ -242,7 +242,9 @@ void Mesh::ExportToPly(const char* path)
     if (!file)
         return;
 
-	file << "ply" << endl;
+	// numVertices = m_position.size();
+    // numFaces = 0;
+    file << "ply" << endl;
     file << "format ascii 1.0" << endl;
     file << "element vertex " << numVertices << endl;
     file << "property float x" << endl << "property float y" << endl << "property float z" << endl;
