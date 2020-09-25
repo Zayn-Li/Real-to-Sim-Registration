@@ -252,7 +252,7 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     }
     double err_temp;
     Mesh pt_dev;
-    Mesh pt_dev_avg;
+    Mesh pt_dev_direct;
     pt_dev.ImportMeshFromPly(init_path);
     // pt_dev_avg.ImportMeshFromPly(init_path);
     for (int i_dev_pt=0;i_dev_pt<surf_init.numVertices;i_dev_pt++)
@@ -361,8 +361,8 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             
         }
     }
-    pt_dev_avg = pt_dev;
-    int numAvg[pt_dev.numVertices];
+    
+    // int numAvg[pt_dev.numVertices];
     // alternative average algorithm
     // Point3 face_dev;
     // for (int k = 0; k < pt_dev.numVertices; k++)
@@ -407,7 +407,95 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 //        pt_dev_avg.m_positions[k] = pt_dev_avg.m_positions[k] / double(numAvg[k]+1);
 //    }
 // alternative average function end
-    pt_dev.ExportToPly(out_path);
+    
+    // shape matching average
+   pt_dev_direct = pt_dev;
+   for (int k = 0; k < pt_dev.numVertices; k++)
+   {
+       pt_dev_direct.m_positions[k] = pt_dev_direct.m_positions[k] / sqrt(pow(pt_dev_direct.m_positions[k].x,2)+pow(pt_dev_direct.m_positions[k].y,2)+pow(pt_dev_direct.m_positions[k].z,2));
+
+   }
+    std::fstream fp3("./reg_data/cluster.txt", std::ios::in);
+	if (!fp3.is_open())
+	{
+		printf("can't find cluster file\n");
+		return 1;
+	}
+    char buffer[256];
+    int num_offset,num_id;
+    fp3 >> buffer;
+    if (strcmp(buffer, "CLUSTEROFFSETS") == 0)
+        fp3 >> num_offset;
+    else
+        printf("wrong input structure\n");
+    int offset[num_offset];
+    for (int j=0; j< num_offset; j++)
+        fp3 >> offset[j];
+    fp3 >> buffer;
+    if (strcmp(buffer, "CLUSTERINDICES") == 0)
+        fp3 >> num_id;
+    else
+        printf("wrong input structure\n");
+    int cl_idx[num_id];
+    for (int j=0; j< num_id; j++)
+        fp3 >> cl_idx[j];        
+            
+    float numAvg[pt_dev.numVertices];
+    for (int k = 0; k < num_id; k++)
+    {
+        numAvg[cl_idx[k]]++;
+    }
+    
+    Point3 temp_direct, clus_direct;
+    Mesh pt_dev_sm;
+    pt_dev_sm = pt_dev;
+    for (int k = 0; k < pt_dev_sm.numVertices; k++)
+    {
+        pt_dev_sm.m_positions[k].x = 0;
+        pt_dev_sm.m_positions[k].y = 0;
+        pt_dev_sm.m_positions[k].z = 0;
+    }  
+    
+    int start_id, end_id;
+    start_id = 0;
+    double diff_min =100;
+    double diff_total;
+    for (int id_clus = 0; id_clus < num_offset; id_clus++)
+    {
+        
+        end_id = offset[id_clus];
+        for (int id_pt = start_id; id_pt <end_id; id_pt++)
+        {
+            temp_direct = pt_dev_direct.m_positions[cl_idx[id_pt]];
+            diff_total = 0;
+            for (int id_pt_clus = start_id; id_pt_clus <end_id; id_pt_clus++)
+            {
+                diff_total += acos(temp_direct.x * pt_dev_direct.m_positions[cl_idx[id_pt_clus]].x
+                                + temp_direct.y * pt_dev_direct.m_positions[cl_idx[id_pt_clus]].y
+                                + temp_direct.z * pt_dev_direct.m_positions[cl_idx[id_pt_clus]].z);
+            }
+            if (diff_total < diff_min)
+            {
+                diff_min = diff_total;
+                clus_direct = temp_direct;
+            }
+        }
+        for (int id_pt = start_id; id_pt <end_id; id_pt++)
+        {
+            pt_dev_sm.m_positions[cl_idx[id_pt]] = pt_dev_sm.m_positions[cl_idx[id_pt]] + (clus_direct.x * pt_dev.m_positions[cl_idx[id_pt]].x
+                                                                                        + clus_direct.y * pt_dev.m_positions[cl_idx[id_pt]].y
+                                                                                        + clus_direct.z * pt_dev.m_positions[cl_idx[id_pt]].z)
+                                                                                        / numAvg[cl_idx[id_pt]] * clus_direct;
+        }
+        start_id = end_id;
+    }    
+    
+    // cout << "diif_total:" << diff_total << diff_min << endl;
+    // cout << "avg:" << pt_dev_direct.m_positions[10].x << "  " << pt_dev_direct.m_positions[10].y << "  " << pt_dev_direct.m_positions[10].z << "  " << endl;
+    // cout << "cluster:" << clus_direct.x << "   " << clus_direct.y << "   " << clus_direct.z << "   " << endl;
+
+
+    pt_dev_sm.ExportToPly(out_path);
     
 	std::ofstream wfile(out_path2);
 

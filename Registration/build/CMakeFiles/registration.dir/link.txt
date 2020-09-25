@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC  -O3 -Wall  -shared  -o registration.cpython-37m-x86_64-linux-gnu.so CMakeFiles/registration.dir/registration.cpp.o CMakeFiles/registration.dir/src/core.cpp.o CMakeFiles/registration.dir/src/maths.cpp.o CMakeFiles/registration.dir/src/mesh.cpp.o CMakeFiles/registration.dir/src/platform.cpp.o -flto 
