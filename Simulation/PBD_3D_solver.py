@@ -133,7 +133,7 @@ def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and 
 @ti.kernel
 def Position_update(n: ti.i32):# Compute new position
     for i in range(n):
-        if actuation_type[i] != 1: #the actuated points(control_type[i] = 1) are controlled by the tool only!
+        if actuation_type[i] == 0: #the actuated points(control_type[i] = 1) are controlled by the tool only!
             x[i] += v[i] * dt
 
 @ti.kernel
@@ -356,11 +356,11 @@ def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
         #DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
         #shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
         #apply_shape_delta(number_particles)
-    new_X = x.to_numpy()
-    #shape matching
-    DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
-    shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
-    apply_shape_delta(number_particles)
+        new_X = x.to_numpy()
+        #shape matching
+        DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
+        shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
+        apply_shape_delta(number_particles)
     updata_velosity(number_particles)
 
 #gui = ti.GUI('Mass Spring System', res=(640, 640), background_color=0xdddddd)
@@ -522,6 +522,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
         ActuatedParticle.append(original_index[index])
     for index in BaseParticleIndex:
         BaseParticle.append(original_index[index])
+
     for i in range(len(points)):
         control_type = -1
         if i in ActuatedParticle:
@@ -583,11 +584,11 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                     #the first three steps -> only consider external force
                     old_posi(n)
                     #old_X = old_x.to_numpy()
-                    old_X = x.to_numpy()
                     substep(n, x_, y_, z_)
                     Position_update(n)
                     tmp_prefix_ascii='./Registration/tmp.ply'
                     for i in range(pbd_num_iters):
+                        old_X = x.to_numpy()
                         print("This is", i, "iteration for the inner loop.")
                         #old_X = x.to_numpy()
                         constraint_neighbors.fill(-1)
@@ -625,7 +626,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         #1 -> seleced surface mesh
                         tmp = np.zeros(max_num_particles,dtype=np.float32)
                         for i in new_index[0:len(Deviat[0])]:
-                            tmp[i] = 1
+                            tmp[original_index[i]] = 1
                         Registration_index.from_numpy(tmp)
                         #Registration index
                         tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
@@ -640,11 +641,11 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         Registration_grad.from_numpy(tmp)
                         user_specify[None] = 0.1
                         apply_regis_delta(n)
-                    new_X = x.to_numpy()
-                    #shape matching
-                    DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
-                    shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
-                    apply_shape_delta(n)
+                        new_X = x.to_numpy()
+                        #shape matching
+                        DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
+                        shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
+                        apply_shape_delta(n)
                     updata_velosity(n)
                 else:
                     forward(n, number_tetra, x_, y_, z_, Clusters, stiffness) #x,y,z control input
