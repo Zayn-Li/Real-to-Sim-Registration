@@ -677,8 +677,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         if Actuated_shape_matching:
                             solver_pos=X[ActuatedParticle]
                             Regis_pos=shape_matching_ActuatedPoints(stiffness,solver_pos,Regis_pos)
-                            print(Regis_pos)
-                        asd
                         #shape matching
                         tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
                         control_index=0
