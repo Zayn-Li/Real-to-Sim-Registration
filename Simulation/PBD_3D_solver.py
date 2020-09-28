@@ -122,7 +122,7 @@ def find_volumn_constraint(n: ti.i32):
 def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and new velocity
     for i in range(n):
         if actuation_type[i] == 0:
-            #v[i] *= ti.exp(-dt * damping[None]) # damping
+            v[i] *= ti.exp(-dt * damping[None]) # damping
             total_force = ti.Vector(gravity) * particle_mass
             v[i] += dt * total_force / mass[i]
         if actuation_type[i] == 1:  #control points fixed on the robot arm
@@ -340,6 +340,28 @@ def shape_matching(stiffness, Clusters, old_X, new_X):
             DeltaX[Clusters[index][i],:] += x_offset / cluster_constraint_num[Clusters[index][i]]
     return DeltaX
 
+def shape_matching_ActuatedPoints(stiffness, old_X, new_X): #new_X -> registration_position old_X -> solver_position
+    new_X=np.array(new_X)
+    old_mean=np.mean(old_X,axis=0)
+    new_mean=np.mean(new_X,axis=0)
+    old_diff = old_X - old_mean
+    new_diff = new_X - new_mean
+    rotation_ = np.zeros([3,3])
+    for i in range(len(old_X)):
+        rotation_ += new_diff[i,:].reshape(3,1).dot(old_diff[i,:].reshape(1,3))
+    rotation, symmetric = scipy.linalg.polar(rotation_)
+    tmp = new_mean - rotation.dot(old_mean)
+    Transform = np.column_stack((rotation, tmp.T))
+    new_positions = []
+    delta=[]
+    for i in range(len(old_X)):
+        H_coor = np.row_stack((old_X[i,:].reshape(3,1),np.array([1])))
+        array=Transform.dot(H_coor).squeeze()
+        new_positions.append([array[0],array[1],array[2]])
+        array=Transform.dot(H_coor).squeeze() - new_X[i,:]
+        delta.append([array[0],array[1],array[2]])
+    return new_positions
+
 
 def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
     #the first three steps -> only consider external force
@@ -471,7 +493,7 @@ damping[None] = 30
 def L2_distance(p1, p2):
     return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2
 
-def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch):
+def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch, Actuated_shape_matching):
     #Read all mesh points from txt.file
     points = []
     with open(dir_path + 'node', 'r') as f:
@@ -650,6 +672,14 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                                 tmp[original_index[i]] = 1
                         Registration_index.from_numpy(tmp)
                         Regis_pos=Read_ActuatedPoints_FromRegistration(Registraion_source, ControlParticleIndex) #for control points
+                        print(Regis_pos)
+                        #shape matching for actuated points
+                        if Actuated_shape_matching:
+                            solver_pos=X[ActuatedParticle]
+                            Regis_pos=shape_matching_ActuatedPoints(stiffness,solver_pos,Regis_pos)
+                            print(Regis_pos)
+                        asd
+                        #shape matching
                         tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
                         control_index=0
                         for i in ActuatedParticle:
@@ -825,6 +855,7 @@ if __name__ == '__main__':
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
     Registration_switch = True
+    Actuated_shape_matching = True
     total_images = len(ControlTimestamps) #Total number of steps
-    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch)
+    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)
 
