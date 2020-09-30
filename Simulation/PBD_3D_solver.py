@@ -62,7 +62,7 @@ Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
 Registration_position = vec()
-gravity = [0, 0, 0] #direction (x,y,z) accelaration
+gravity = [0, 6.9, 6.9] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -684,7 +684,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                             tmp[i,:] = Regis_pos[control_index]
                             control_index+=1
                         Registration_position.from_numpy(tmp)
-                        user_specify[None] = 0.1
+                        user_specify[None] = 0.7
                         apply_regis_delta(n)
                         apply_regis_pos_control_point(n)
                         new_X = x.to_numpy()
