@@ -263,31 +263,28 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     pt_dev.ImportMeshFromPly(init_path);
     for(int i_dev_pt=0; i_dev_pt<surf_obs.numVertices; i_dev_pt++)
     {   
-        alpha = err_pt_grid[i_dev_pt][8];
-        beta = err_pt_grid[i_dev_pt][9];
-        gamma = err_pt_grid[i_dev_pt][10];
         for(int dev_ax=0; dev_ax<3; dev_ax++)
         {
             err_temp = 0;
             if(dev_ax==0) 
             {
-                err_temp = 0.1 * beta * gamma * err_pt_grid[i_dev_pt][7] + 0.1 * beta * (1-gamma) * err_pt_grid[i_dev_pt][6] + 0.1 * (1-beta) * gamma * err_pt_grid[i_dev_pt][5] + 0.1 * (1-beta) * (1-gamma) * err_pt_grid[i_dev_pt][4]
-                            - 0.1 * beta * gamma * err_pt_grid[i_dev_pt][3] - 0.1 * beta * (1-gamma) * err_pt_grid[i_dev_pt][2] - 0.1 * (1-beta) * gamma * err_pt_grid[i_dev_pt][1] - 0.1 * (1-beta) * (1-gamma) * err_pt_grid[i_dev_pt][0];                
+                err_temp = 0.1 * beta * gamma * err_grid[7] + 0.1 * beta * (1-gamma) * err_grid[6] + 0.1 * (1-beta) * gamma * err_grid[5] + 0.1 * (1-beta) * (1-gamma) * err_grid[4]
+                            - 0.1 * beta * gamma * err_grid[3] - 0.1 * beta * (1-gamma) * err_grid[2] - 0.1 * (1-beta) * gamma * err_grid[1] - 0.1 * (1-beta) * (1-gamma) * err_grid[0];                
                 pt_dev.m_positions[i_dev_pt].x = err_temp * 10000;    
             
             }
             // error of each point
             if(dev_ax==1) 
             {
-                err_temp = alpha * 0.1 * gamma * err_pt_grid[i_dev_pt][7] + alpha * 0.1 * (1-gamma) * err_pt_grid[i_dev_pt][6] + alpha * (-0.1) * gamma * err_pt_grid[i_dev_pt][5] + alpha * (-0.1) * (1-gamma) * err_pt_grid[i_dev_pt][4]
-                            + (1-alpha) * 0.1 * gamma * err_pt_grid[i_dev_pt][3] + (1-alpha) * 0.1 * (1-gamma) * err_pt_grid[i_dev_pt][2] + (1-alpha) * (-0.1) * gamma * err_pt_grid[i_dev_pt][1] + (1-alpha) * (-0.1) * (1-gamma) * err_pt_grid[i_dev_pt][0];                
+                err_temp = alpha * 0.1 * gamma * err_grid[7] + alpha * 0.1 * (1-gamma) * err_grid[6] + alpha * (-0.1) * gamma * err_grid[5] + alpha * (-0.1) * (1-gamma) * err_grid[4]
+                            + (1-alpha) * 0.1 * gamma * err_grid[3] + (1-alpha) * 0.1 * (1-gamma) * err_grid[2] + (1-alpha) * (-0.1) * gamma * err_grid[1] + (1-alpha) * (-0.1) * (1-gamma) * err_grid[0];                
                 pt_dev.m_positions[i_dev_pt].y = err_temp * 10000;    
             
             }           
             if(dev_ax==2) 
             {
-                err_temp = alpha * beta * 0.1 * err_pt_grid[i_dev_pt][7] + alpha * beta * (-0.1) * err_pt_grid[i_dev_pt][6] + alpha * (1-beta) * 0.1 * err_pt_grid[i_dev_pt][5] + alpha * (1-beta) * (-0.1) * err_pt_grid[i_dev_pt][4]
-                            + (1-alpha) * beta * 0.1 * err_pt_grid[i_dev_pt][3] + (1-alpha) * beta * (-0.1) * err_pt_grid[i_dev_pt][2] + (1-alpha) * (1-beta) * 0.1 * err_pt_grid[i_dev_pt][1] + (1-alpha) * (1-beta) * (-0.1) * err_pt_grid[i_dev_pt][0];               
+                err_temp = alpha * beta * 0.1 * err_grid[7] + alpha * beta * (-0.1) * err_grid[6] + alpha * (1-beta) * 0.1 * err_grid[5] + alpha * (1-beta) * (-0.1) * err_grid[4]
+                            + (1-alpha) * beta * 0.1 * err_grid[3] + (1-alpha) * beta * (-0.1) * err_grid[2] + (1-alpha) * (1-beta) * 0.1 * err_grid[1] + (1-alpha) * (1-beta) * (-0.1) * err_grid[0];               
                 pt_dev.m_positions[i_dev_pt].z = err_temp * 10000;    
             
             }
