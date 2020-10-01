@@ -672,7 +672,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                                 tmp[original_index[i]] = 1
                         Registration_index.from_numpy(tmp)
                         Regis_pos=Read_ActuatedPoints_FromRegistration(Registraion_source, ControlParticleIndex) #for control points
-                        print(Regis_pos)
                         #shape matching for actuated points
                         if Actuated_shape_matching:
                             solver_pos=X[ActuatedParticle]
@@ -684,7 +683,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                             tmp[i,:] = Regis_pos[control_index]
                             control_index+=1
                         Registration_position.from_numpy(tmp)
-                        user_specify[None] = 0.9
+                        user_specify[None] = 0.5
                         apply_regis_delta(n)
                         apply_regis_pos_control_point(n)
                         new_X = x.to_numpy()
@@ -852,7 +851,7 @@ if __name__ == '__main__':
     #Deviat, Errors = Read_registration('../Registration/results/')
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
-    Registration_switch = False
+    Registration_switch = True
     Actuated_shape_matching = True
     total_images = len(ControlTimestamps) #Total number of steps
     solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)

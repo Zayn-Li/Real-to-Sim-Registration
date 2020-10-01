@@ -159,13 +159,13 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 	fp2.close();
     // deformation of surface point
 
-    printf("Init: %d Sim: %d\n",surf_init.numVertices,surf_sim.numVertices);
+    //printf("Init: %d Sim: %d\n",surf_init.numVertices,surf_sim.numVertices);
     Point3 pt_deform[surf_init.numVertices];
     for (int i_pt=0;i_pt<surf_init.numVertices;i_pt++)
     {
-        pt_deform[i_pt].x = surf_sim.m_positions[i_pt].x-surf_init.m_positions[i_pt].x;
-        pt_deform[i_pt].y = surf_sim.m_positions[i_pt].y-surf_init.m_positions[i_pt].y;
-        pt_deform[i_pt].z = surf_sim.m_positions[i_pt].z-surf_init.m_positions[i_pt].z;
+        pt_deform[i_pt].x = surf_obs.m_positions[i_pt].x-surf_init.m_positions[i_pt].x;
+        pt_deform[i_pt].y = surf_obs.m_positions[i_pt].y-surf_init.m_positions[i_pt].y;
+        pt_deform[i_pt].z = surf_obs.m_positions[i_pt].z-surf_init.m_positions[i_pt].z;
     }
 
     // the eular grid of simulated deformation
@@ -188,16 +188,17 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     Point3 pt[8];  
     double err_grid[8];
     double err_pt[surf_obs.numVertices];
+    static double err_pt_grid[764][11];
 
     for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
     {
         // find the interpolation coefficient
-        i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*1000);
-        alpha = (surf_obs.m_positions[i_pt].x - offset_x)*1000 - i_grid;
-        j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*1000);
-        beta = (surf_obs.m_positions[i_pt].y - offset_y)*1000 - j_grid;
-        k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*1000);
-        gamma = (surf_obs.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
+        i_grid = floor((surf_sim.m_positions[i_pt].x - offset_x)*1000);
+        alpha = (surf_sim.m_positions[i_pt].x - offset_x)*1000 - i_grid;
+        j_grid = floor((surf_sim.m_positions[i_pt].y - offset_y)*1000);
+        beta = (surf_sim.m_positions[i_pt].y - offset_y)*1000 - j_grid;
+        k_grid = floor((surf_sim.m_positions[i_pt].z - offset_z)*1000);
+        gamma = (surf_sim.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
 
         // inverse-transformation  
         for(int add_x=0; add_x<2;add_x++)
@@ -222,6 +223,7 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             k_grid_g = floor(pt[i_grid_pt].z*1000);
             gamma_g = pt[i_grid_pt].z*1000 - k_grid_g;  
             err_grid[i_grid_pt] = 0;
+            err_pt_grid[i_pt][i_grid_pt] = 0;
             
             for(int add_x=0; add_x<2;add_x++)
             {
@@ -239,12 +241,16 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
                         else coeff_z=gamma_g;                         
                         // error of each grid vertice
                         err_grid[i_grid_pt] += coeff_x * coeff_y * coeff_z * SDF[i_grid_g+add_x][j_grid_g+add_y][k_grid_g+add_z];
-
+                        
                     }            
                 }            
-            }   
+            }
+            err_pt_grid[i_pt][i_grid_pt] = err_grid[i_grid_pt];   
 
         }
+        err_pt_grid[i_pt][8] = alpha;
+        err_pt_grid[i_pt][9] = beta;
+        err_pt_grid[i_pt][10] = gamma;
         // error of each point
         err_pt[i_pt] = alpha * beta * gamma * err_grid[7] + alpha * beta * (1-gamma) * err_grid[6] + alpha * (1-beta) * gamma * err_grid[5] + alpha * (1-beta) * (1-gamma) * err_grid[4]
                             + (1-alpha) * beta * gamma * err_grid[3] + (1-alpha) * beta * (1-gamma) * err_grid[2] + (1-alpha) * (1-beta) * gamma * err_grid[1] + (1-alpha) * (1-beta) * (1-gamma) * err_grid[0];
@@ -252,267 +258,43 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     }
     double err_temp;
     Mesh pt_dev;
-    Mesh pt_dev_direct;
+    // Mesh pt_dev_direct;
+    
     pt_dev.ImportMeshFromPly(init_path);
-    // pt_dev_avg.ImportMeshFromPly(init_path);
-    for (int i_dev_pt=0;i_dev_pt<surf_init.numVertices;i_dev_pt++)
-    {
-        for (int dev_ax =0;dev_ax<3;dev_ax++)
-        {    
-            for (int i_pt=0;i_pt<surf_init.numVertices;i_pt++)
-            {
-                pt_deform[i_pt].x = surf_sim.m_positions[i_pt].x-surf_init.m_positions[i_pt].x;
-                pt_deform[i_pt].y = surf_sim.m_positions[i_pt].y-surf_init.m_positions[i_pt].y;
-                pt_deform[i_pt].z = surf_sim.m_positions[i_pt].z-surf_init.m_positions[i_pt].z;        
-                if (i_pt == i_dev_pt)
-                {
-                    if(dev_ax==0) pt_deform[i_pt].x += 0.0001;            
-                    else if(dev_ax==1) pt_deform[i_pt].y += 0.0001;
-                    else if(dev_ax==2) pt_deform[i_pt].z += 0.0001;
-                }
-
-            }
-                
-            // the eular grid of simulated deformation
-
-            
-            for (int i =0; i<100 ;i++)
-            {
-                for (int j =0; j<60 ;j++)
-                {
-                    for (int k =0; k<55 ;k++)
-                    {
-                        eul_after_def[i][j][k] = pt_deform[id_close[i][j][k]];
-                    }
-                }
-            }
-
-            // find the interpolation coefficient
-            
+    for(int i_dev_pt=0; i_dev_pt<surf_obs.numVertices; i_dev_pt++)
+    {   
+        alpha = err_pt_grid[i_dev_pt][8];
+        beta = err_pt_grid[i_dev_pt][9];
+        gamma = err_pt_grid[i_dev_pt][10];
+        for(int dev_ax=0; dev_ax<3; dev_ax++)
+        {
             err_temp = 0;
-
-            for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
+            if(dev_ax==0) 
             {
-                // find the interpolation coefficient
-                i_grid = floor((surf_obs.m_positions[i_pt].x - offset_x)*1000);
-                alpha = (surf_obs.m_positions[i_pt].x - offset_x)*1000 - i_grid;
-                j_grid = floor((surf_obs.m_positions[i_pt].y - offset_y)*1000);
-                beta = (surf_obs.m_positions[i_pt].y - offset_y)*1000 - j_grid;
-                k_grid = floor((surf_obs.m_positions[i_pt].z - offset_z)*1000);
-                gamma = (surf_obs.m_positions[i_pt].z - offset_z)*1000 - k_grid;             
-
-                // inverse-transformation  
-                for(int add_x=0; add_x<2;add_x++)
-                {
-                    for(int add_y=0; add_y<2;add_y++)
-                    {
-                        for(int add_z=0; add_z<2;add_z++)
-                        {
-                            pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].x;
-                            pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].y;
-                            pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].z;
-                        }            
-                    }            
-                }
-                // compute error
-                for(int i_grid_pt=0; i_grid_pt<8;i_grid_pt++)
-                {        
-                    i_grid_g = floor(pt[i_grid_pt].x*1000);
-                    alpha_g = pt[i_grid_pt].x*1000 - i_grid_g;
-                    j_grid_g = floor(pt[i_grid_pt].y*1000);
-                    beta_g = pt[i_grid_pt].y*1000 - j_grid_g;
-                    k_grid_g = floor(pt[i_grid_pt].z*1000);
-                    gamma_g = pt[i_grid_pt].z*1000 - k_grid_g;  
-                    err_grid[i_grid_pt] = 0;
-                    
-                    for(int add_x=0; add_x<2;add_x++)
-                    {
-                        if(add_x==0) coeff_x=1-alpha_g;
-                        else coeff_x=alpha_g;
-
-                        for(int add_y=0; add_y<2;add_y++)
-                        {
-                            if(add_y==0) coeff_y=1-beta_g;
-                            else coeff_y=beta_g;                    
-                            
-                            for(int add_z=0; add_z<2;add_z++)
-                            {
-                                if(add_z==0) coeff_z=1-gamma_g;
-                                else coeff_z=gamma_g;                         
-                                // error of each grid vertice
-                                err_grid[i_grid_pt] += coeff_x * coeff_y * coeff_z * SDF[i_grid_g+add_x][j_grid_g+add_y][k_grid_g+add_z];
-
-                            }            
-                        }            
-                    }   
-
-                }
-                // error of each point
-                err_pt[i_pt] = alpha * beta * gamma * err_grid[7] + alpha * beta * (1-gamma) * err_grid[6] + alpha * (1-beta) * gamma * err_grid[5] + alpha * (1-beta) * (1-gamma) * err_grid[4]
-                            + (1-alpha) * beta * gamma * err_grid[3] + (1-alpha) * beta * (1-gamma) * err_grid[2] + (1-alpha) * (1-beta) * gamma * err_grid[1] + (1-alpha) * (1-beta) * (1-gamma) * err_grid[0];
-
-                err_temp += err_pt[i_pt];
-                
-            }
+                err_temp = 0.1 * beta * gamma * err_pt_grid[i_dev_pt][7] + 0.1 * beta * (1-gamma) * err_pt_grid[i_dev_pt][6] + 0.1 * (1-beta) * gamma * err_pt_grid[i_dev_pt][5] + 0.1 * (1-beta) * (1-gamma) * err_pt_grid[i_dev_pt][4]
+                            - 0.1 * beta * gamma * err_pt_grid[i_dev_pt][3] - 0.1 * beta * (1-gamma) * err_pt_grid[i_dev_pt][2] - 0.1 * (1-beta) * gamma * err_pt_grid[i_dev_pt][1] - 0.1 * (1-beta) * (1-gamma) * err_pt_grid[i_dev_pt][0];                
+                pt_dev.m_positions[i_dev_pt].x = err_temp * 10000;    
             
-            if(dev_ax==0) pt_dev.m_positions[i_dev_pt].x = (err_temp-err_total) * 10000;            
-            else if(dev_ax==1) pt_dev.m_positions[i_dev_pt].y = (err_temp-err_total) * 10000;
-            else if(dev_ax==2) pt_dev.m_positions[i_dev_pt].z = (err_temp-err_total) * 10000;            
+            }
+            // error of each point
+            if(dev_ax==1) 
+            {
+                err_temp = alpha * 0.1 * gamma * err_pt_grid[i_dev_pt][7] + alpha * 0.1 * (1-gamma) * err_pt_grid[i_dev_pt][6] + alpha * (-0.1) * gamma * err_pt_grid[i_dev_pt][5] + alpha * (-0.1) * (1-gamma) * err_pt_grid[i_dev_pt][4]
+                            + (1-alpha) * 0.1 * gamma * err_pt_grid[i_dev_pt][3] + (1-alpha) * 0.1 * (1-gamma) * err_pt_grid[i_dev_pt][2] + (1-alpha) * (-0.1) * gamma * err_pt_grid[i_dev_pt][1] + (1-alpha) * (-0.1) * (1-gamma) * err_pt_grid[i_dev_pt][0];                
+                pt_dev.m_positions[i_dev_pt].y = err_temp * 10000;    
             
-        }
-    }
-    
-    // int numAvg[pt_dev.numVertices];
-    // alternative average algorithm
-    // Point3 face_dev;
-    // for (int k = 0; k < pt_dev.numVertices; k++)
-    // {
-    //     numAvg[k]=0;
-    //     pt_dev_avg.m_positions[k].x = 0;
-    //     pt_dev_avg.m_positions[k].y = 0;
-    //     pt_dev_avg.m_positions[k].z = 0;
-    // }    
-    // for (int k = 0; k < pt_dev.numFaces*3; k++)
-    // {
-    //     numAvg[pt_dev.m_indices[k]]++;
-    // }
-    
-    // for (int k = 0; k < pt_dev.numFaces; k++)
-    // {
-    //     face_dev = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] + pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]] + pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]];
-    //     pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] + face_dev / double(numAvg[k]);
-    //     pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] + face_dev / double(numAvg[k]);
-    //     pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] + face_dev / double(numAvg[k]);
-    // }    
-
-	// alternative average function start
-//    for (int k = 0; k < pt_dev.numVertices; k++)
-//    {
-//        numAvg[k]=0;
-//
-//    }
-//    for (int k = 0; k < pt_dev.numFaces*3; k++)
-//    {
-//        numAvg[pt_dev.m_indices[k]]++;
-//    }
-//
-//    for (int k = 0; k < pt_dev.numFaces; k++)
-//    {
-//        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]]);
-//        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+1]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3+2]]);
-//        pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] = pt_dev_avg.m_positions[pt_dev_avg.m_indices[k*3+2]] + 0.5*(pt_dev.m_positions[pt_dev_avg.m_indices[k*3+1]]+pt_dev.m_positions[pt_dev_avg.m_indices[k*3]]);
-//    }
-//    for (int k = 0; k < pt_dev_avg.numVertices; k++)
-//    {
-//        pt_dev_avg.m_positions[k] = pt_dev_avg.m_positions[k] / double(numAvg[k]+1);
-//    }
-// alternative average function end
-    
-    // shape matching average
-   pt_dev_direct = pt_dev;
-   for (int k = 0; k < pt_dev.numVertices; k++)
-   {
-       pt_dev_direct.m_positions[k] = pt_dev_direct.m_positions[k] / sqrt(pow(pt_dev_direct.m_positions[k].x,2)+pow(pt_dev_direct.m_positions[k].y,2)+pow(pt_dev_direct.m_positions[k].z,2));
-
-   }
-    std::fstream fp3("./reg_data/cluster.txt", std::ios::in);
-	if (!fp3.is_open())
-	{
-		printf("can't find cluster file\n");
-		return 1;
-	}
-    char buffer[256];
-    int num_offset,num_id;
-    fp3 >> buffer;
-    if (strcmp(buffer, "CLUSTEROFFSETS") == 0)
-        fp3 >> num_offset;
-    else
-        printf("wrong input structure\n");
-    int offset[num_offset];
-    for (int j=0; j< num_offset; j++)
-        fp3 >> offset[j];
-    fp3 >> buffer;
-    if (strcmp(buffer, "CLUSTERINDICES") == 0)
-        fp3 >> num_id;
-    else
-        printf("wrong input structure\n");
-    int cl_idx[num_id];
-    for (int j=0; j< num_id; j++)
-        fp3 >> cl_idx[j];        
-    fp3.close();        
-    float numAvg[pt_dev.numVertices];
-    for (int k = 0; k < pt_dev.numVertices; k++)
-    {
-        numAvg[k]=0;
-    }    
-    for (int k = 0; k < num_id; k++)
-    {
-        numAvg[cl_idx[k]]++;
-    }
-    
-    Point3 temp_direct, clus_direct;
-    Mesh pt_dev_sm;
-    pt_dev_sm = pt_dev;
-    for (int k = 0; k < pt_dev_sm.numVertices; k++)
-    {
-        pt_dev_sm.m_positions[k].x = 0;
-        pt_dev_sm.m_positions[k].y = 0;
-        pt_dev_sm.m_positions[k].z = 0;
-    }  
-    
-    int start_id, end_id;
-    start_id = 0;
-    double diff_min =100;
-    double diff_total;
-    for (int id_clus = 0; id_clus < num_offset; id_clus++)
-    {
-        
-        end_id = offset[id_clus];
-        for (int id_pt = start_id; id_pt <end_id; id_pt++)
-        {
-            temp_direct = pt_dev_direct.m_positions[cl_idx[id_pt]];
-            diff_total = 0;
-            for (int id_pt_clus = start_id; id_pt_clus <end_id; id_pt_clus++)
+            }           
+            if(dev_ax==2) 
             {
-                diff_total += acos(temp_direct.x * pt_dev_direct.m_positions[cl_idx[id_pt_clus]].x
-                                + temp_direct.y * pt_dev_direct.m_positions[cl_idx[id_pt_clus]].y
-                                + temp_direct.z * pt_dev_direct.m_positions[cl_idx[id_pt_clus]].z);
-            }
-            if (diff_total < diff_min)
-            {
-                diff_min = diff_total;
-                clus_direct = temp_direct;
+                err_temp = alpha * beta * 0.1 * err_pt_grid[i_dev_pt][7] + alpha * beta * (-0.1) * err_pt_grid[i_dev_pt][6] + alpha * (1-beta) * 0.1 * err_pt_grid[i_dev_pt][5] + alpha * (1-beta) * (-0.1) * err_pt_grid[i_dev_pt][4]
+                            + (1-alpha) * beta * 0.1 * err_pt_grid[i_dev_pt][3] + (1-alpha) * beta * (-0.1) * err_pt_grid[i_dev_pt][2] + (1-alpha) * (1-beta) * 0.1 * err_pt_grid[i_dev_pt][1] + (1-alpha) * (1-beta) * (-0.1) * err_pt_grid[i_dev_pt][0];               
+                pt_dev.m_positions[i_dev_pt].z = err_temp * 10000;    
+            
             }
         }
-        for (int id_pt = start_id; id_pt <end_id; id_pt++)
-        {
-            pt_dev_sm.m_positions[cl_idx[id_pt]] = pt_dev_sm.m_positions[cl_idx[id_pt]] + (clus_direct.x * pt_dev.m_positions[cl_idx[id_pt]].x
-                                                                                        + clus_direct.y * pt_dev.m_positions[cl_idx[id_pt]].y
-                                                                                        + clus_direct.z * pt_dev.m_positions[cl_idx[id_pt]].z)
-                                                                                        / numAvg[cl_idx[id_pt]] * clus_direct;
-        }
-        start_id = end_id;
-    }    
-    
-    // cout << "diif_total:" << diff_total << diff_min << endl;
-    // cout << "avg:" << pt_dev_direct.m_positions[10].x << "  " << pt_dev_direct.m_positions[10].y << "  " << pt_dev_direct.m_positions[10].z << "  " << endl;
-    // cout << "cluster:" << clus_direct.x << "   " << clus_direct.y << "   " << clus_direct.z << "   " << endl;
-	
-    std::ofstream fp4("./numAvg.txt", std::ios::trunc);
- 
-	if (!fp4.is_open())
-	{
-		printf("can't save SDF file\n");
-		return 1;
-	}
-    for (int k = 0; k < pt_dev.numVertices; k++)
-    {
-        fp4 << numAvg[k];
-        fp4 << "\n";
     }
-	fp4.close();
 
-    pt_dev_sm.ExportToPly(out_path);
+    pt_dev.ExportToPly(out_path);
     
 	std::ofstream wfile(out_path2);
 
