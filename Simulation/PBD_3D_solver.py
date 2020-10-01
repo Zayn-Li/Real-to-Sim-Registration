@@ -61,14 +61,15 @@ Registration_index = scalar()
 Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
-gravity = [0, 0, 0] #direction (x,y,z) accelaration
+Registration_position = vec()
+gravity = [0, 6.9, 6.9] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
     ti.root.dense(ti.i, maximum_tetras).place(volumn_constraint_list)
     ti.root.dense(ti.ij, (maximum_tetras, 5)).place(tetra_volumn)
     ti.root.dense(ti.ij, (max_num_particles, max_num_particles)).place(rest_length)
-    ti.root.dense(ti.i, max_num_particles).place(x, v, old_x, actuation_type, position_delta_tmp, mass, shape_delta, Registration_index, Registration_grad) #initialzation to zero
+    ti.root.dense(ti.i, max_num_particles).place(x, v, old_x, actuation_type, position_delta_tmp, mass, shape_delta, Registration_index, Registration_grad, Registration_position) #initialzation to zero
     nb_node = ti.root.dense(ti.i, max_num_particles)
     nb_node.place(constraint_num_neighbors)
     nb_node.place(volumn_constraint_num)
@@ -121,7 +122,7 @@ def find_volumn_constraint(n: ti.i32):
 def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and new velocity
     for i in range(n):
         if actuation_type[i] == 0:
-            #v[i] *= ti.exp(-dt * damping[None]) # damping
+            v[i] *= ti.exp(-dt * damping[None]) # damping
             total_force = ti.Vector(gravity) * particle_mass
             v[i] += dt * total_force / mass[i]
         if actuation_type[i] == 1:  #control points fixed on the robot arm
@@ -281,6 +282,12 @@ def apply_regis_delta(n: ti.i32):
             mass_inv = 1 / mass[i]
             x[i] -=  user_specify[None] * Registration_lambda[None] * mass_inv * Registration_grad[i]
 
+@ti.kernel
+def apply_regis_pos_control_point(n: ti.i32):
+    for i in range(n):
+        if actuation_type[i] == 1:
+            x[i] = Registration_position[i]
+
 def check_single_particle():
     cons = rest_length.to_numpy()
     invalid_particle = []
@@ -333,16 +340,38 @@ def shape_matching(stiffness, Clusters, old_X, new_X):
             DeltaX[Clusters[index][i],:] += x_offset / cluster_constraint_num[Clusters[index][i]]
     return DeltaX
 
+def shape_matching_ActuatedPoints(stiffness, old_X, new_X): #new_X -> registration_position old_X -> solver_position
+    new_X=np.array(new_X)
+    old_mean=np.mean(old_X,axis=0)
+    new_mean=np.mean(new_X,axis=0)
+    old_diff = old_X - old_mean
+    new_diff = new_X - new_mean
+    rotation_ = np.zeros([3,3])
+    for i in range(len(old_X)):
+        rotation_ += new_diff[i,:].reshape(3,1).dot(old_diff[i,:].reshape(1,3))
+    rotation, symmetric = scipy.linalg.polar(rotation_)
+    tmp = new_mean - rotation.dot(old_mean)
+    Transform = np.column_stack((rotation, tmp.T))
+    new_positions = []
+    delta=[]
+    for i in range(len(old_X)):
+        H_coor = np.row_stack((old_X[i,:].reshape(3,1),np.array([1])))
+        array=Transform.dot(H_coor).squeeze()
+        new_positions.append([array[0],array[1],array[2]])
+        array=Transform.dot(H_coor).squeeze() - new_X[i,:]
+        delta.append([array[0],array[1],array[2]])
+    return new_positions
+
 
 def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
     #the first three steps -> only consider external force
     old_posi(number_particles)
     #old_X = old_x.to_numpy()
-    old_X = x.to_numpy()
     substep(number_particles, x_, y_, z_)
     Position_update(number_particles)
     for i in range(pbd_num_iters):
         #old_X = x.to_numpy()
+        old_X = x.to_numpy()
         constraint_neighbors.fill(-1)
         find_spring_constraint(number_particles)
         volumn_constraint_num.fill(0)
@@ -464,7 +493,7 @@ damping[None] = 30
 def L2_distance(p1, p2):
     return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2
 
-def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch):
+def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch, Actuated_shape_matching):
     #Read all mesh points from txt.file
     points = []
     with open(dir_path + 'node', 'r') as f:
@@ -522,7 +551,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
         ActuatedParticle.append(original_index[index])
     for index in BaseParticleIndex:
         BaseParticle.append(original_index[index])
-
     for i in range(len(points)):
         control_type = -1
         if i in ActuatedParticle:
@@ -530,7 +558,6 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
         elif i in BaseParticle:
             control_type = 0
         new_particle(points[i][0], points[i][1], points[i][2], control_type)
-
     n = num_particles[None]
     X = x.to_numpy()[:n]
     new_constraints = tetealedon2constraint(constraints, X)
@@ -639,8 +666,27 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                                 tmp_index+=1
                         Registration_lambda[None] = Registration_error[None] / np.sum(np.sum(tmp ** 2, axis = 1))
                         Registration_grad.from_numpy(tmp)
-                        user_specify[None] = 0.1
+                        tmp = np.zeros(max_num_particles,dtype=np.float32)
+                        for i in new_index[0:len(Deviat[0])]:
+                            if original_index[i] not in ActuatedParticle: #The registration errors are not applied for the control points(unique points)
+                                tmp[original_index[i]] = 1
+                        Registration_index.from_numpy(tmp)
+                        Regis_pos=Read_ActuatedPoints_FromRegistration(Registraion_source, ControlParticleIndex) #for control points
+                        print(Regis_pos)
+                        #shape matching for actuated points
+                        if Actuated_shape_matching:
+                            solver_pos=X[ActuatedParticle]
+                            Regis_pos=shape_matching_ActuatedPoints(stiffness,solver_pos,Regis_pos)
+                        #shape matching
+                        tmp = np.zeros(shape=(max_num_particles,3),dtype=np.float32)
+                        control_index=0
+                        for i in ActuatedParticle:
+                            tmp[i,:] = Regis_pos[control_index]
+                            control_index+=1
+                        Registration_position.from_numpy(tmp)
+                        user_specify[None] = 0.7
                         apply_regis_delta(n)
+                        apply_regis_pos_control_point(n)
                         new_X = x.to_numpy()
                         #shape matching
                         DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
@@ -761,6 +807,23 @@ def Read_registration(file_error, file_deriv):
     #764 surface vertices that will be corrected
     return Deviat, errors
 
+def Read_ActuatedPoints_FromRegistration(regis_dir, actuated_points):
+    f=open(regis_dir)
+    iter_f=iter(f)
+    tmp=[]
+    for line in iter_f:
+        line = line.split(" ")
+        for index in range(len(line)):
+            if len(line[index]) > 3 and line[index][3].isdigit():
+                line[index] = float(line[index])
+        tmp.append(line)
+    f.close()
+    tmp=tmp[10:]
+    actuated_points_positons=[]
+    for i in actuated_points:
+        actuated_points_positons.append(tmp[i])
+    return actuated_points_positons
+
 if __name__ == '__main__':
     #Control input during each iteration
     Thin_or_Thick = 'thin'
@@ -790,6 +853,7 @@ if __name__ == '__main__':
     dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
     Registration_switch = True
+    Actuated_shape_matching = True
     total_images = len(ControlTimestamps) #Total number of steps
-    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch)
+    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)
 
