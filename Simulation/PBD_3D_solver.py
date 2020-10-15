@@ -14,7 +14,8 @@ import os
 import copy
 import re
 import registration
-
+import sys
+import os
 
 ti.init(debug=False,arch=ti.cpu) #cpu or cuda
 real = ti.f32 #data type f32 -> float in C
@@ -62,7 +63,7 @@ Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
 Registration_position = vec()
-gravity = [0, 6.9, 6.9] #direction (x,y,z) accelaration
+gravity = [0, 0, 0] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -394,7 +395,8 @@ def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
 
 #gui = ti.GUI('Mass Spring System', res=(640, 640), background_color=0xdddddd)
 class Render():
-    def __init__(self, offset, wire_frame):
+    def __init__(self, offset, wire_frame, Experiment_set):
+        self.Experiment_set = Experiment_set
         self.offset = offset
         self.wire_frame = wire_frame
         self.iteration = 0
@@ -444,15 +446,21 @@ class Render():
     def update_mesh(self):
         ##deformable object
         if self.iteration >= 0 and self.iteration <= 9:
-            fuze_trimesh_current = trimesh.load('./Results/Interior/interior_00000' + str(self.iteration) +'.ply')
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Results/Interior/interior_00000' + str(self.iteration) +'.ply')
             self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
             self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
             self.mesh_pose_current[2,3] = -np.min(fuze_trimesh_current.vertices[:,2])
             if self.iteration == 0:
                 self.node_current = self.scene.add(self.mesh_current, pose = self.mesh_pose_current)
+        elif self.iteration <= 99:
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Results/Interior/interior_0000' + str(self.iteration) +'.ply')
+            self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
+            self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
+            self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
+            self.mesh_pose_current[2,3] = -np.min(fuze_trimesh_current.vertices[:,2])
         else:
-            fuze_trimesh_current = trimesh.load('./Results/Interior/interior_0000' + str(self.iteration) +'.ply')  
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Results/Interior/interior_000' + str(self.iteration) +'.ply')
             self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
             self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
@@ -461,9 +469,9 @@ class Render():
     def update_mesh_regis(self,loop_index):
         #for registration part
         if loop_index >= 0 and loop_index <= 9:
-            fuze_trimesh_current = trimesh.load("./Registration/tmp_00000" + str(loop_index) + ".ply")
-        else:
-            fuze_trimesh_current = trimesh.load("./Registration/tmp_0000" + str(loop_index) + ".ply")
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + "/Registration/tmp_00000" + str(loop_index) + ".ply")
+        elif loop_index <= 99:
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + "/Registration/tmp_0000" + str(loop_index) + ".ply")
         self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
         self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
         self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
@@ -493,7 +501,7 @@ damping[None] = 30
 def L2_distance(p1, p2):
     return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2
 
-def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch, Actuated_shape_matching):
+def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajectory, ControlParticleIndex, BaseParticleIndex, offset, dir_path, scalar, Clusters, stiffness, matched_lists, Registration_switch, Actuated_shape_matching):
     #Read all mesh points from txt.file
     points = []
     with open(dir_path + 'node', 'r') as f:
@@ -579,10 +587,10 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
         for j in i:
             tmp.append(j)
     interior_mesh = np.array(tmp)
-    interior_prefix_ascii = "./Results/Interior/interior.ply"
+    interior_prefix_ascii = Experiment_set + "/Results/Interior/interior.ply"
     ##end: setup PLY
     #begin:setup rendering offscreen
-    off_screen = Render(offset, wire_frame)
+    off_screen = Render(offset, wire_frame, Experiment_set)
     off_screen.configuration()
     #end:setup rendering offscreen
     iteration = 0
@@ -613,7 +621,7 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                     #old_X = old_x.to_numpy()
                     substep(n, x_, y_, z_)
                     Position_update(n)
-                    tmp_prefix_ascii='./Registration/tmp.ply'
+                    tmp_prefix_ascii=Experiment_set+'/Registration/tmp.ply'
                     for i in range(pbd_num_iters):
                         old_X = x.to_numpy()
                         print("This is", i, "iteration for the inner loop.")
@@ -636,14 +644,14 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                         writer_tmp.export_frame_ascii(i, tmp_prefix_ascii)
                         off_screen.update_mesh_regis(i)
                         off_screen.render_regis(i)
-                        Registraion_source = "./mesh_with_deform/obs_interp_ply/" + str(iteration + 1) + ".ply"
+                        Registraion_source = Experiment_set + "/mesh_with_deform/obs_interp_ply/" + str(iteration + 1) + ".ply" #observed points(ground-truth)
                         if i <= 9:
-                            tmp_ply = "./Registration/tmp_00000" + str(i) +".ply"
+                            tmp_ply = Experiment_set + "/Registration/tmp_00000" + str(i) +".ply"
                         else:
-                            tmp_ply = "./Registration/tmp_0000" + str(i) +".ply"
+                            tmp_ply = Experiment_set + "/Registration/tmp_0000" + str(i) +".ply"
                         print("Regis source:", Registraion_source)
                         print("tmp_ply:", tmp_ply)
-                        registration.reg_err("./surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
+                        registration.reg_err(Experiment_set + "/surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
                         Deviat, Errors = Read_registration("./eg_err.txt", "./eg_der.txt")
                         tmp = np.array(Errors[0][0],dtype = np.float32)
                         Registration_error.from_numpy(tmp)
@@ -683,9 +691,9 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
                             tmp[i,:] = Regis_pos[control_index]
                             control_index+=1
                         Registration_position.from_numpy(tmp)
-                        user_specify[None] = 0.5
+                        user_specify[None] = 0.1
                         apply_regis_delta(n)
-                        apply_regis_pos_control_point(n)
+                        # apply_regis_pos_control_point(n)
                         new_X = x.to_numpy()
                         #shape matching
                         DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
@@ -707,8 +715,8 @@ def solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTi
     print("After simulation, volumn is:", volumn_sum)
     # print("Video has been generated!")
 
-def Read_control():
-    position_path = './Control_actions'
+def Read_control(Experiment_set):
+    position_path = Experiment_set + '/Control_actions'
     position_file = os.listdir(position_path)
     position_file.sort(key= lambda x:int(x[:x.index('to')]))
     actions = []
@@ -725,17 +733,8 @@ def Read_control():
         actions.append(action)
     return actions, timestamps
 
-def Read_MatchedTime():
-    f = open('./Registration/stamps.txt')
-    iter_f = iter(f)
-    timestamps = []
-    for line in iter_f:
-        timestamps.append(line[:-1])
-    f.close()
-    return timestamps
-
-def Read_ControlIndex(thin_or_thick):
-    f = open('./Particle_index/control_' + thin_or_thick + '.txt')
+def Read_ControlIndex(thin_or_thick, Experiment_set):
+    f = open(Experiment_set + '/Particle_index/control_' + thin_or_thick + '.txt')
     iter_f = iter(f)
     ControlParticles = []
     for line in iter_f:
@@ -743,8 +742,8 @@ def Read_ControlIndex(thin_or_thick):
     f.close()
     return ControlParticles
 
-def Read_BaseIndex(thin_or_thick):
-    f = open('./Particle_index/base_' + thin_or_thick + '.txt')
+def Read_BaseIndex(thin_or_thick, Experiment_set):
+    f = open(Experiment_set + '/Particle_index/base_' + thin_or_thick + '.txt')
     iter_f = iter(f)
     BaseParticles = []
     for line in iter_f:
@@ -825,34 +824,27 @@ def Read_ActuatedPoints_FromRegistration(regis_dir, actuated_points):
 
 if __name__ == '__main__':
     #Control input during each iteration
+    Experiment_set = sys.argv[1]
     Thin_or_Thick = 'thin'
-    ControlTrajectory, ControlTimestamps = Read_control()
-    PointcloundTimestamps = Read_MatchedTime()
-    ControlParticleIndex = Read_ControlIndex(Thin_or_Thick)
-    BaseParticleIndex = Read_BaseIndex(Thin_or_Thick)
-    Clusters = Read_cluster('./volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
-    registration.reg_init("./surface_mesh/tetgenq1.4/initial.ply","./surface_mesh/tetgenq1.4/vol_mesh_" + Thin_or_Thick + "_tetgen.ply")
+    ControlTrajectory, ControlTimestamps = Read_control(Experiment_set)
+    #Now, with interpolation, the observed points at each timestamp can be obtained
+    ControlParticleIndex = Read_ControlIndex(Thin_or_Thick, Experiment_set)
+    BaseParticleIndex = Read_BaseIndex(Thin_or_Thick, Experiment_set)
+    Clusters = Read_cluster(Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
+    registration.reg_init(Experiment_set + "/surface_mesh/tetgenq1.4/initial.ply","./surface_mesh/tetgenq1.4/vol_mesh_" + Thin_or_Thick + "_tetgen.ply")
     scalar = 1
     offset = 0
     stiffness = 1
-    matched_list = []
-    for i in range(len(ControlTimestamps)):
-        if ControlTimestamps[i] in PointcloundTimestamps:
-            matched_list.append(i+1)
-    matched_list.insert(0,0)
-    matched_list=list(range(89))
-    # f=open('./Results/Interior/matchStamps.txt', 'w')
-    # for i in range(len(matched_list)):
-    #     f.write(PointcloundTimestamps[i])
-    #     f.write('----------')
-    #     f.write(str(matched_list[i]))
-    #     f.write('\n')
-    # f.close()
-    #Deviat, Errors = Read_registration('../Registration/results/')
-    dir = './volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
+    # matched_list = []
+    # for i in range(len(ControlTimestamps)):
+    #     if ControlTimestamps[i] in PointcloundTimestamps:
+    #         matched_list.append(i+1)
+    # matched_list.insert(0,0)
+    matched_list=list(range(len(ControlTrajectory)))
+    dir = Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
     Registration_switch = True
     Actuated_shape_matching = True
     total_images = len(ControlTimestamps) #Total number of steps
-    solver_and_render(total_images, wire_frame, ControlTrajectory, PointcloundTimestamps, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)
+    solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajectory, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)
 
