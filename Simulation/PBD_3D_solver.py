@@ -47,6 +47,7 @@ volumn_epsolon = 1e-11
 
 x, v, old_x = vec(), vec(), vec()
 user_specify = ti.var(dt=real, shape=())
+user_specify_ = ti.var(dt=real, shape=())
 actuation_type = scalar()
 # if rest_length[i, j] = 0, it means i and j are not connected
 rest_length = scalar()
@@ -361,7 +362,12 @@ def shape_matching_ActuatedPoints(stiffness, old_X, new_X): #new_X -> registrati
         new_positions.append([array[0],array[1],array[2]])
         array=Transform.dot(H_coor).squeeze() - new_X[i,:]
         delta.append([array[0],array[1],array[2]])
-    return new_positions
+    for i in range(len(old_X)):
+        for z in range(3):
+            new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
+            new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
+            new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
+    return new_X
 
 
 def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
@@ -681,6 +687,8 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
                         Registration_index.from_numpy(tmp)
                         Regis_pos=Read_ActuatedPoints_FromRegistration(Registraion_source, ControlParticleIndex) #for control points
                         #shape matching for actuated points
+                        user_specify[None] = 0.05
+                        user_specify_[None] = 0.05
                         if Actuated_shape_matching:
                             solver_pos=X[ActuatedParticle]
                             Regis_pos=shape_matching_ActuatedPoints(stiffness,solver_pos,Regis_pos)
@@ -691,9 +699,8 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
                             tmp[i,:] = Regis_pos[control_index]
                             control_index+=1
                         Registration_position.from_numpy(tmp)
-                        user_specify[None] = 0.1
                         apply_regis_delta(n)
-                        # apply_regis_pos_control_point(n)
+                        #apply_regis_pos_control_point(n)
                         new_X = x.to_numpy()
                         #shape matching
                         DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
