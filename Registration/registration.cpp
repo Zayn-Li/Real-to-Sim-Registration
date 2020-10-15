@@ -220,7 +220,7 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     double err_grid[8];
     double err_pt[surf_obs.numVertices];
     // change the size for different dataset
-    static double err_pt_grid[240][11];
+    static double err_pt_grid[1000][11];
 
     for (int i_pt=0;i_pt<surf_obs.numVertices;i_pt++)
     {
