@@ -152,7 +152,10 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     static int id_close[100][100][100];
 
     // static pcl::PointXYZ eul_deform[90][50][45];
-    Point3 eul_after_def[100][100][100];
+    // Point3 eul_after_def[100][100][100];
+    static double eul_after_def_x[100][100][100];
+    static double eul_after_def_y[100][100][100];
+    static double eul_after_def_z[100][100][100];
 	
     std::fstream fp("./SDF.txt", std::ios::in);
 	if (!fp.is_open())
@@ -207,7 +210,9 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
         {
             for (int k =0; k<100 ;k++)
             {
-                eul_after_def[i][j][k] = pt_deform[id_close[i][j][k]];
+                eul_after_def_x[i][j][k] = pt_deform[id_close[i][j][k]].x;
+		eul_after_def_y[i][j][k] = pt_deform[id_close[i][j][k]].y;
+		eul_after_def_z[i][j][k] = pt_deform[id_close[i][j][k]].z;
             }
         }
     }
@@ -239,9 +244,9 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
             {
                 for(int add_z=0; add_z<2;add_z++)
                 {
-                    pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].x;
-                    pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].y;
-                    pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.001 - eul_after_def[i_grid+add_x][j_grid+add_y][k_grid+add_z].z;
+                    pt[add_x*4+add_y*2+add_z].x = (i_grid+add_x) *0.001 - eul_after_def_x[i_grid+add_x][j_grid+add_y][k_grid+add_z];
+                    pt[add_x*4+add_y*2+add_z].y = (j_grid+add_y) *0.001 - eul_after_def_y[i_grid+add_x][j_grid+add_y][k_grid+add_z];
+                    pt[add_x*4+add_y*2+add_z].z = (k_grid+add_z) *0.001 - eul_after_def_z[i_grid+add_x][j_grid+add_y][k_grid+add_z];
                 }            
             }            
         }
