@@ -123,7 +123,13 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     // string file[17] = {"00","05","11","17","23","29","35","41","47","53","61","65","71","76","81","84","88"};
     double err_total;
     err_total = 0;
-    double x_center,y_center,z_center,x_sum, y_sum, z_sum = 0;
+    double x_center,y_center,z_center,x_sum, y_sum, z_sum;
+    x_center = 0;
+    y_center = 0;
+    z_center = 0;
+    x_sum = 0;
+    y_sum = 0;
+    z_sum = 0;
     for (int i=0; i<surf_init.numVertices; i++)
     {
         x_sum = x_sum + surf_init.m_positions[i].x;
