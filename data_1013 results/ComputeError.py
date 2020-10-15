@@ -66,10 +66,10 @@ if __name__ == "__main__":
     GeneBarChart(NoRegBarChartPath, NumpyErrors)
     ErrorParticle = GeneHeatmap(NoRegHeatmapPath, NumpyErrors)
 
-    # RegLineChartPath = "./RegLineChart.txt"
-    # RegBarChartPath = "./RegBarChart.txt"
-    # RegHeatmapPath = "./RegHeatmap.txt"
-    # NumpyErrors, InitialData = ComputeError(Observed_file, RegiSimu_file)
-    # GeneLineChart(RegLineChartPath, NumpyErrors)
-    # GeneBarChart(RegBarChartPath, NumpyErrors)
-    # ErrorParticle = GeneHeatmap(RegHeatmapPath, NumpyErrors)
+    RegLineChartPath = "./RegLineChart.txt"
+    RegBarChartPath = "./RegBarChart.txt"
+    RegHeatmapPath = "./RegHeatmap.txt"
+    NumpyErrors, InitialData = ComputeError(Observed_file, RegiSimu_file)
+    GeneLineChart(RegLineChartPath, NumpyErrors)
+    GeneBarChart(RegBarChartPath, NumpyErrors)
+    ErrorParticle = GeneHeatmap(RegHeatmapPath, NumpyErrors)
