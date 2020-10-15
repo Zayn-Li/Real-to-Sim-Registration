@@ -21,8 +21,8 @@ int RegistrationInit(const char* init_path, const char* track_path)
     surf_init.ImportMeshFromPly(init_path); 
     surf_track.ImportMeshFromPly(track_path);
 
-    static double SDF[60][60][60];
-    static int id_close[60][60][60];
+    static double SDF[100][100][100];
+    static int id_close[100][100][100];
     double dist_new;
     double dist = 1;
     int index_new;
@@ -40,15 +40,15 @@ int RegistrationInit(const char* init_path, const char* track_path)
     y_center = y_sum / surf_init.numVertices;   
     z_center = z_sum / surf_init.numVertices;      
     
-    double offset_x = x_center -0.03; //+0.03
-    double offset_y = y_center -0.03; //+0.03
-    double offset_z = z_center -0.03; //+0.03
+    double offset_x = x_center -0.05; //+0.05
+    double offset_y = y_center -0.05; //+0.05
+    double offset_z = z_center -0.05; //+0.05
     // the SDF grid of initial frame
-    for (int i =0; i<60 ;i++)
+    for (int i =0; i<100 ;i++)
     {
-        for (int j =0; j<60 ;j++)
+        for (int j =0; j<100 ;j++)
         {
-            for (int k =0; k<60 ;k++)
+            for (int k =0; k<100 ;k++)
             {
                 dist = 1;
                 for (int i_surf_pt = 0; i_surf_pt<surf_init.numVertices; i_surf_pt++)
@@ -75,11 +75,11 @@ int RegistrationInit(const char* init_path, const char* track_path)
 		printf("can't save SDF file\n");
 		return 1;
 	}
-	for (int i = 0; i < 60; i++)
+	for (int i = 0; i < 100; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 100; j++)
 	    {
-        	for (int k = 0; k < 60; k++)
+        	for (int k = 0; k < 100; k++)
 	        {
                 fp << SDF[i][j][k];
                 fp << " ";
@@ -95,11 +95,11 @@ int RegistrationInit(const char* init_path, const char* track_path)
 		printf("can't save closest points\n");
 		return 1;
 	}
-	for (int i = 0; i < 60; i++)
+	for (int i = 0; i < 100; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 100; j++)
 	    {
-        	for (int k = 0; k < 60; k++)
+        	for (int k = 0; k < 100; k++)
 	        {
                 fp2 << id_close[i][j][k];
                 fp2 << " ";
@@ -141,18 +141,18 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
     y_center = y_sum / surf_init.numVertices;   
     z_center = z_sum / surf_init.numVertices;      
     
-    double offset_x = x_center -0.03; //+0.03
-    double offset_y = y_center -0.03; //+0.03
-    double offset_z = z_center -0.03; //+0.03
+    double offset_x = x_center -0.05; //+0.05
+    double offset_y = y_center -0.05; //+0.05
+    double offset_z = z_center -0.05; //+0.05
 
     // for(int i_file = 0;i_file<17;i_file++)
     // {
     // int i_file = 0;
-    static double SDF[60][60][60];
-    static int id_close[60][60][60];
+    static double SDF[100][100][100];
+    static int id_close[100][100][100];
 
     // static pcl::PointXYZ eul_deform[90][50][45];
-    Point3 eul_after_def[60][60][60];
+    Point3 eul_after_def[100][100][100];
 	
     std::fstream fp("./SDF.txt", std::ios::in);
 	if (!fp.is_open())
@@ -160,11 +160,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 		printf("can't find SDF file\n");
 		return 1;
 	}
-	for (int i = 0; i < 60; i++)
+	for (int i = 0; i < 100; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 100; j++)
 	    {
-        	for (int k = 0; k < 60; k++)
+        	for (int k = 0; k < 100; k++)
 	        {
                 fp >> SDF[i][j][k];
             }
@@ -177,11 +177,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 		printf("can't find closest points\n");
 		return 1;
 	}
-	for (int i = 0; i < 60; i++)
+	for (int i = 0; i < 100; i++)
 	{
-        for (int j = 0; j < 60; j++)
+        for (int j = 0; j < 100; j++)
 	    {
-        	for (int k = 0; k < 60; k++)
+        	for (int k = 0; k < 100; k++)
 	        {
                 fp2 >> id_close[i][j][k];
             }
@@ -201,11 +201,11 @@ int RegistrationError(const char* init_path, const char* sim_path, const char* o
 
     // the eular grid of simulated deformation
     
-    for (int i =0; i<60 ;i++)
+    for (int i =0; i<100 ;i++)
     {
-        for (int j =0; j<60 ;j++)
+        for (int j =0; j<100 ;j++)
         {
-            for (int k =0; k<60 ;k++)
+            for (int k =0; k<100 ;k++)
             {
                 eul_after_def[i][j][k] = pt_deform[id_close[i][j][k]];
             }
