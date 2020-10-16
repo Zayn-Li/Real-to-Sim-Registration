@@ -365,9 +365,7 @@ def shape_matching_ActuatedPoints(stiffness, old_X, new_X): #new_X -> registrati
     for i in range(len(old_X)):
         for z in range(3):
             new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
-            new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
-            new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
-    return new_X
+    return new_positions
 
 
 def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
@@ -687,8 +685,8 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
                         Registration_index.from_numpy(tmp)
                         Regis_pos=Read_ActuatedPoints_FromRegistration(Registraion_source, ControlParticleIndex) #for control points
                         #shape matching for actuated points
-                        user_specify[None] = 0.05
-                        user_specify_[None] = 0.05
+                        user_specify[None] = 0.5
+                        user_specify_[None] = 0.00
                         if Actuated_shape_matching:
                             solver_pos=X[ActuatedParticle]
                             Regis_pos=shape_matching_ActuatedPoints(stiffness,solver_pos,Regis_pos)
@@ -700,7 +698,7 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
                             control_index+=1
                         Registration_position.from_numpy(tmp)
                         apply_regis_delta(n)
-                        #apply_regis_pos_control_point(n)
+                        apply_regis_pos_control_point(n)
                         new_X = x.to_numpy()
                         #shape matching
                         DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
