@@ -835,7 +835,7 @@ if __name__ == '__main__':
     #Now, with interpolation, the observed points at each timestamp can be obtained
     ControlParticleIndex = Read_ControlIndex(Thin_or_Thick, Experiment_set)
     BaseParticleIndex = Read_BaseIndex(Thin_or_Thick, Experiment_set)
-    Clusters = Read_cluster(Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
+    Clusters = Read_cluster(Experiment_set + '/volume_mesh/tetgenq0.95/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
     registration.reg_init(Experiment_set + "/surface_mesh/tetgenq1.4/initial.ply","./surface_mesh/tetgenq1.4/vol_mesh_" + Thin_or_Thick + "_tetgen.ply")
     scalar = 1
     offset = 0
@@ -846,7 +846,7 @@ if __name__ == '__main__':
     #         matched_list.append(i+1)
     # matched_list.insert(0,0)
     matched_list=list(range(len(ControlTrajectory)))
-    dir = Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
+    dir = Experiment_set + '/volume_mesh/tetgenq0.95/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
     Registration_switch = True
     Actuated_shape_matching = True
