@@ -23,7 +23,6 @@ real = ti.f32 #data type f32 -> float in C
 max_num_particles = 5000
 maximum_tetras = 40000
 
-lambda_epsilon = 0.0 #user specified relaxation parameter(important) -> adjustable
 dt = 1e-2#simulation time step(important) -> adjustable(inferred from rosbag timestamps)
 dt_inv = 1 / dt
 dx = 0.02
@@ -38,9 +37,6 @@ num_particles = ti.var(ti.i32, shape=())
 num_tetra = ti.var(ti.i32, shape=())
 damping = ti.var(ti.f32, shape=())
 
-particle_mass = 1 #mi
-particle_mass_inv = 1 / particle_mass # 1 / mi
-particle_mass_invv = 1 / (particle_mass_inv + particle_mass_inv + lambda_epsilon)
 maximum_constraints = 50
 epsolon = 1e-8 #digit accurary(important) -> adjustable
 volumn_epsolon = 1e-11
@@ -52,19 +48,19 @@ actuation_type = scalar()
 # if rest_length[i, j] = 0, it means i and j are not connected
 rest_length = scalar()
 tetra_volumn = scalar()
+volumn_constraint_num = ti.var(ti.i32)
+volumn_constraint_list = scalar()
 mass = scalar()
 position_delta_tmp = vec()
 shape_delta = vec()
 constraint_neighbors = ti.var(ti.i32)
 constraint_num_neighbors = ti.var(ti.i32)
-volumn_constraint_num = ti.var(ti.i32)
-volumn_constraint_list = scalar()
 Registration_index = scalar()
 Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
 Registration_position = vec()
-gravity = [0, 0, 0] #direction (x,y,z) accelaration
+gravity = [-1.862, 6.076, 7.448] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -125,7 +121,7 @@ def substep(n: ti.i32, x_: ti.f32, y_: ti.f32, z_: ti.f32): # Compute force and 
     for i in range(n):
         if actuation_type[i] == 0:
             v[i] *= ti.exp(-dt * damping[None]) # damping
-            total_force = ti.Vector(gravity) * particle_mass
+            total_force = ti.Vector(gravity) * mass[i]
             v[i] += dt * total_force / mass[i]
         if actuation_type[i] == 1:  #control points fixed on the robot arm
             x[i][0] += x_
@@ -362,9 +358,9 @@ def shape_matching_ActuatedPoints(stiffness, old_X, new_X): #new_X -> registrati
         new_positions.append([array[0],array[1],array[2]])
         array=Transform.dot(H_coor).squeeze() - new_X[i,:]
         delta.append([array[0],array[1],array[2]])
-    for i in range(len(old_X)):
-        for z in range(3):
-            new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
+   # for i in range(len(old_X)):
+   #     for z in range(3):
+   #         new_positions[i][z] = old_X[i][z] + user_specify_[None] * (new_positions[i][z] - old_X[i][z])
     return new_positions
 
 
@@ -835,7 +831,7 @@ if __name__ == '__main__':
     #Now, with interpolation, the observed points at each timestamp can be obtained
     ControlParticleIndex = Read_ControlIndex(Thin_or_Thick, Experiment_set)
     BaseParticleIndex = Read_BaseIndex(Thin_or_Thick, Experiment_set)
-    Clusters = Read_cluster(Experiment_set + '/volume_mesh/tetgenq0.95/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
+    Clusters = Read_cluster(Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/clusters0.0010.txt')
     registration.reg_init(Experiment_set + "/surface_mesh/tetgenq1.4/initial.ply","./surface_mesh/tetgenq1.4/vol_mesh_" + Thin_or_Thick + "_tetgen.ply")
     scalar = 1
     offset = 0
@@ -846,7 +842,7 @@ if __name__ == '__main__':
     #         matched_list.append(i+1)
     # matched_list.insert(0,0)
     matched_list=list(range(len(ControlTrajectory)))
-    dir = Experiment_set + '/volume_mesh/tetgenq0.95/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
+    dir = Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
     Registration_switch = True
     Actuated_shape_matching = True
