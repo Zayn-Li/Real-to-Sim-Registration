@@ -60,7 +60,7 @@ Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
 Registration_position = vec()
-gravity = [-1.862, 6.076, 7.448] #direction (x,y,z) accelaration
+gravity = [0, 0, 0] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -681,7 +681,7 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
                         Registration_index.from_numpy(tmp)
                         Regis_pos=Read_ActuatedPoints_FromRegistration(Registraion_source, ControlParticleIndex) #for control points
                         #shape matching for actuated points
-                        user_specify[None] = 0.5
+                        user_specify[None] = 0.1
                         user_specify_[None] = 0.00
                         if Actuated_shape_matching:
                             solver_pos=X[ActuatedParticle]
