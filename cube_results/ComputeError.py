@@ -66,7 +66,6 @@ if __name__ == "__main__":
     GeneLineChart(NoRegLineChartPath, NumpyErrors)
     GeneBarChart(NoRegBarChartPath, NumpyErrors)
     ErrorParticle = GeneHeatmap(NoRegHeatmapPath, NumpyErrors)
-    sns.set()
 
     RegLineChartPath = "./RegLineChart.txt"
     RegBarChartPath = "./RegBarChart.txt"
