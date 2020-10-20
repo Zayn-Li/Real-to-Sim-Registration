@@ -60,7 +60,7 @@ Registration_grad = vec()
 Registration_error = ti.var(ti.f32, shape=())
 Registration_lambda = ti.var(ti.f32, shape=())
 Registration_position = vec()
-gravity = [-1.862, 6.076, 7.448] #direction (x,y,z) accelaration
+gravity = [0, 0, 0] #direction (x,y,z) accelaration
 
 @ti.layout  #Environment layout(placed in ti.layout) initializatioxn of the dimensiond of each tensor variables(global)
 def place():
@@ -390,7 +390,7 @@ def forward(number_particles, number_tetra, x_, y_, z_, Clusters, stiffness):
         #shape matching
         DeltaX = shape_matching(stiffness, Clusters, old_X=old_X, new_X=new_X)
         shape_delta.from_numpy(DeltaX) #can be inside the loop or outside the loop
-        apply_shape_delta(number_particles)
+        # apply_shape_delta(number_particles)
     updata_velosity(number_particles)
 
 #gui = ti.GUI('Mass Spring System', res=(640, 640), background_color=0xdddddd)
@@ -651,7 +651,7 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
                             tmp_ply = Experiment_set + "/Registration/tmp_0000" + str(i) +".ply"
                         print("Regis source:", Registraion_source)
                         print("tmp_ply:", tmp_ply)
-                        registration.reg_err(Experiment_set + "/surface_mesh/tetgenq1.4/initial.ply",tmp_ply,Registraion_source,"./eg_der.txt","./eg_err.txt")
+                        registration.reg_err(Experiment_set + "/surface_mesh/tetgenq1.4/initial.ply",tmp_ply, Registraion_source,"./eg_der.txt","./eg_err.txt")
                         Deviat, Errors = Read_registration("./eg_err.txt", "./eg_der.txt")
                         tmp = np.array(Errors[0][0],dtype = np.float32)
                         Registration_error.from_numpy(tmp)
@@ -844,7 +844,7 @@ if __name__ == '__main__':
     matched_list=list(range(len(ControlTrajectory)))
     dir = Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
-    Registration_switch = True
+    Registration_switch = False
     Actuated_shape_matching = True
     total_images = len(ControlTimestamps) #Total number of steps
     solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajectory, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)
