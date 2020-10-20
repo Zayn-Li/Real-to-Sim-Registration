@@ -1,0 +1,2 @@
+/usr/bin/ar qc libLibsModule.a  CMakeFiles/LibsModule.dir/core.cpp.o CMakeFiles/LibsModule.dir/platform.cpp.o CMakeFiles/LibsModule.dir/maths.cpp.o CMakeFiles/LibsModule.dir/mesh.cpp.o CMakeFiles/LibsModule.dir/DeformativeObject3D.cpp.o
+/usr/bin/ranlib libLibsModule.a
