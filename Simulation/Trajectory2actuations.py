@@ -27,6 +27,8 @@ def Generate_actuations(positions, file_names):
             actuation.append(p_2[i] - p_1[i])
         file_name = file_names[index][:file_names[index].index('_')] + 'to' + file_names[index + 1][:file_names[index + 1].index('_')] + '.txt'
         save_dir = './Control_actions/'
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
         save_file = save_dir + file_name
         filename = open(save_file, 'w')
         for xyz in actuation:
