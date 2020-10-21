@@ -1,0 +1,9 @@
+<!DOCTYPE ViewState>
+<project>
+ <VCGCamera TranslationVector="-0.0385868 -0.0334591 -0.157516 1" ViewportPx="1853 926" FocalMm="29.6045" RotationMatrix="0.653141 -0.491017 0.576462 0 -0.169277 -0.836682 -0.520873 0 0.738073 0.242623 -0.629589 0 0 0 0 1 " CenterPx="926 463" CameraType="0" LensDistortion="0 0" BinaryData="0" PixelSizeMm="0.0369161 0.0369161"/>
+ <ViewSettings TrackScale="34.1693" NearPlane="0.303109" FarPlane="10.5385"/>
+</project>
+
+
+color
+#fc9c9e
