@@ -25,7 +25,7 @@ images = []
 
 for i in range(st_x, ed_x):
 
-    filename = os.path.join(args.src_dir, '00_L%02d.png' % i)
+    filename = os.path.join(args.src_dir, '01_L%02d.png' % i)
     print(filename)
     #img = imageio.imread(filename)
 	
@@ -35,4 +35,4 @@ for i in range(st_x, ed_x):
 
     images.append(img)
 
-imageio.mimsave(args.src_dir + 'mesh.gif', images, duration=1.0/10.0)
+imageio.mimsave(args.src_dir + 'mesh_c.gif', images, duration=1.0/10.0)
