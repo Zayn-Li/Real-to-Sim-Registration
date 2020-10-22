@@ -446,7 +446,7 @@ class Render():
     def update_mesh(self):
         ##deformable object
         if self.iteration >= 0 and self.iteration <= 9:
-            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Results/Interior/interior_00000' + str(self.iteration) +'.ply')
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Regis0.1/Interior/interior_00000' + str(self.iteration) +'.ply')
             self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
             self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
@@ -454,13 +454,13 @@ class Render():
             if self.iteration == 0:
                 self.node_current = self.scene.add(self.mesh_current, pose = self.mesh_pose_current)
         elif self.iteration <= 99:
-            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Results/Interior/interior_0000' + str(self.iteration) +'.ply')
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Regis0.1/Interior/interior_0000' + str(self.iteration) +'.ply')
             self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
             self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
             self.mesh_pose_current[2,3] = -np.min(fuze_trimesh_current.vertices[:,2])
         else:
-            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Results/Interior/interior_000' + str(self.iteration) +'.ply')
+            fuze_trimesh_current = trimesh.load(self.Experiment_set + '/Regis0.1/Interior/interior_000' + str(self.iteration) +'.ply')
             self.mesh_current = pyrender.Mesh.from_trimesh(fuze_trimesh_current, wireframe = self.wire_frame)
             self.mesh_pose_current[0,3] = -np.min(fuze_trimesh_current.vertices[:,0])
             self.mesh_pose_current[1,3] = -np.min(fuze_trimesh_current.vertices[:,1])
@@ -587,7 +587,7 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
         for j in i:
             tmp.append(j)
     interior_mesh = np.array(tmp)
-    interior_prefix_ascii = Experiment_set + "/Results/Interior/interior.ply"
+    interior_prefix_ascii = Experiment_set + "/Regis0.1/Interior/interior.ply"
     ##end: setup PLY
     #begin:setup rendering offscreen
     off_screen = Render(offset, wire_frame, Experiment_set)
@@ -715,6 +715,7 @@ def solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajector
         volumn_sum += volumn_final[i, 4]
     print("After simulation, volumn is:", volumn_sum)
     # print("Video has been generated!")
+    off_screen.v.close_external()
 
 def Read_control(Experiment_set):
     position_path = Experiment_set + '/Control_actions'
@@ -817,7 +818,7 @@ def Read_ActuatedPoints_FromRegistration(regis_dir, actuated_points):
                 line[index] = float(line[index])
         tmp.append(line)
     f.close()
-    tmp=tmp[10:]
+    tmp=tmp[30:]
     actuated_points_positons=[]
     for i in actuated_points:
         actuated_points_positons.append(tmp[i])
@@ -844,7 +845,7 @@ if __name__ == '__main__':
     matched_list=list(range(len(ControlTrajectory)))
     dir = Experiment_set + '/volume_mesh/tetgenq1.4/vol_mesh_' + Thin_or_Thick + '/vol_mesh_' + Thin_or_Thick + '.1.' #volume mesh
     wire_frame = False #Render option: True -> wire frame; False -> surface
-    Registration_switch = False
+    Registration_switch = True
     Actuated_shape_matching = True
     total_images = len(ControlTimestamps) #Total number of steps
     solver_and_render(Experiment_set, total_images, wire_frame, ControlTrajectory, ControlParticleIndex, BaseParticleIndex, offset, dir, scalar, Clusters, stiffness, matched_list, Registration_switch, Actuated_shape_matching)
