@@ -1,4 +1,4 @@
-# Install script for directory: /home/hanyunhai/Desktop/Registration/Registration/pybind11
+# Install script for directory: /home/zihan/MeshReconstruction/Registration/Registration/Registration/pybind11
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
